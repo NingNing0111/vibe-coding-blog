@@ -1,0 +1,16 @@
+from pydantic import BaseModel
+from typing import List, TypeVar, Generic
+
+T = TypeVar('T')
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """通用分页响应"""
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+    class Config:
+        from_attributes = True

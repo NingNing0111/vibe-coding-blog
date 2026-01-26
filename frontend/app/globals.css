@@ -1,0 +1,515 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --card-background: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card-background: #1f2937;
+  --border-color: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+}
+
+html {
+  font-family: var(--font-family);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 字体变量定义 */
+html.font-inter {
+  --font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html.font-roboto {
+  --font-family: var(--font-roboto), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html.font-open-sans {
+  --font-family: var(--font-open-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html.font-noto-sans-sc {
+  --font-family: var(--font-noto-sans-sc), 'Microsoft YaHei', 'SimHei', sans-serif;
+}
+
+html.font-system {
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Ant Design 样式覆盖 */
+.ant-layout {
+  background: transparent;
+}
+
+.ant-layout-header {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important; /* slate-200/80 */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .ant-layout-header {
+  border-bottom-color: rgba(55, 65, 81, 0.8) !important; /* gray-700/80 */
+}
+
+/* Header 菜单样式优化 - 移除所有边框 */
+.ant-menu-horizontal {
+  border-bottom: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.ant-menu-horizontal::before,
+.ant-menu-horizontal::after {
+  display: none !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item,
+.ant-menu-horizontal > .ant-menu-submenu {
+  color: rgb(71 85 105) !important; /* slate-600 */
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  background: transparent !important;
+  margin: 0 4px !important;
+  padding: 0 12px !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item::before,
+.ant-menu-horizontal > .ant-menu-submenu::before {
+  display: none !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item:hover,
+.ant-menu-horizontal > .ant-menu-submenu:hover {
+  color: rgb(15 23 42) !important; /* slate-900 */
+  border-bottom-color: rgb(99 102 241) !important; /* indigo-500 */
+  background: transparent !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item-selected {
+  color: rgb(15 23 42) !important; /* slate-900 */
+  border-bottom-color: rgb(99 102 241) !important; /* indigo-500 */
+  background: transparent !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.dark .ant-menu-horizontal > .ant-menu-item,
+.dark .ant-menu-horizontal > .ant-menu-submenu {
+  color: rgb(156 163 175) !important; /* gray-400 */
+}
+
+.dark .ant-menu-horizontal > .ant-menu-item:hover,
+.dark .ant-menu-horizontal > .ant-menu-submenu:hover {
+  color: rgb(243 244 246) !important; /* gray-100 */
+  border-bottom-color: rgb(129 140 248) !important; /* indigo-400 */
+}
+
+.dark .ant-menu-horizontal > .ant-menu-item-selected {
+  color: rgb(243 244 246) !important; /* gray-100 */
+  border-bottom-color: rgb(129 140 248) !important; /* indigo-400 */
+}
+
+/* 移除菜单项内部的边框 */
+.ant-menu-item,
+.ant-menu-submenu-title {
+  border: none !important;
+  border-radius: 4px !important;
+}
+
+.ant-menu-item::after,
+.ant-menu-submenu-title::after {
+  display: none !important;
+}
+
+/* 移除按钮边框 */
+.ant-btn-text {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.ant-btn-text:hover,
+.ant-btn-text:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 确保 Ant Design 组件使用正确的字体 */
+.ant-typography,
+.ant-btn,
+.ant-input,
+.ant-menu,
+.ant-card {
+  font-family: var(--font-family) !important;
+}
+
+/* 代码块样式 */
+.prose pre {
+  @apply bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100 rounded-lg p-3 overflow-x-auto mb-4;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-left: 0;
+  margin-right: 0;
+  border: none !important;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.prose pre code {
+  @apply bg-transparent text-slate-900 dark:text-gray-100 p-0 border-0;
+  font-size: inherit;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  word-break: break-all;
+  white-space: pre;
+}
+
+/* react-syntax-highlighter 样式覆盖 - 亮色模式 */
+.prose pre[class*="language-"],
+.prose div[class*="language-"],
+.prose div[class*="prism"] {
+  background: rgb(248 250 252) !important; /* slate-50 */
+  border: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding: 0.75rem !important;
+  overflow-wrap: break-word !important;
+  word-break: break-all !important;
+}
+
+.prose pre[class*="language-"] code,
+.prose div[class*="language-"] code,
+.prose div[class*="prism"] code,
+.prose pre[class*="language-"] span,
+.prose div[class*="language-"] span {
+  color: rgb(15 23 42) !important; /* slate-900 */
+  background: transparent !important;
+}
+
+/* 优化代码块内部结构，去除多余空白 */
+.prose pre[class*="language-"] > code,
+.prose div[class*="language-"] > code,
+.prose div[class*="prism"] > code {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  white-space: pre !important;
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+}
+
+.prose pre[class*="language-"] code > span,
+.prose div[class*="language-"] code > span {
+  display: inline !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* react-syntax-highlighter 样式覆盖 - 暗色模式 */
+.dark .prose pre[class*="language-"],
+.dark .prose div[class*="language-"],
+.dark .prose div[class*="prism"] {
+  background: rgb(17 24 39) !important; /* gray-900 */
+  border: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding: 0.75rem !important;
+  overflow-wrap: break-word !important;
+  word-break: break-all !important;
+}
+
+.dark .prose pre[class*="language-"] code,
+.dark .prose div[class*="language-"] code,
+.dark .prose div[class*="prism"] code,
+.dark .prose pre[class*="language-"] span,
+.dark .prose div[class*="language-"] span {
+  color: rgb(243 244 246) !important; /* gray-100 */
+  background: transparent !important;
+}
+
+/* 优化暗色模式代码块内部结构 */
+.dark .prose pre[class*="language-"] > code,
+.dark .prose div[class*="language-"] > code,
+.dark .prose div[class*="prism"] > code {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  white-space: pre !important;
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+}
+
+.dark .prose pre[class*="language-"] code > span,
+.dark .prose div[class*="language-"] code > span {
+  display: inline !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 移除所有可能的黑色边框和背景 */
+.prose > div:not([class*="prose"]) {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 代码高亮容器样式 */
+.prose pre[class*="language-"] {
+  @apply relative;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.prose pre[class*="language-"]::before {
+  content: attr(data-language);
+  @apply absolute top-2 right-4 text-xs text-gray-400 uppercase;
+}
+
+/* 确保代码块外层容器不产生多余空白 */
+.prose > div[class*="relative"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 优化 react-syntax-highlighter 生成的内部结构 */
+.prose div[class*="language-"] > div,
+.prose div[class*="prism"] > div {
+  width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+.prose div[class*="language-"] table,
+.prose div[class*="prism"] table {
+  width: auto !important;
+  min-width: 100% !important;
+  margin: 0 !important;
+  border-collapse: collapse !important;
+}
+
+.prose div[class*="language-"] tbody,
+.prose div[class*="prism"] tbody {
+  display: block !important;
+  width: 100% !important;
+}
+
+.prose div[class*="language-"] tr,
+.prose div[class*="prism"] tr {
+  display: block !important;
+  width: 100% !important;
+}
+
+.prose div[class*="language-"] td,
+.prose div[class*="prism"] td {
+  display: block !important;
+  padding: 0 !important;
+  border: none !important;
+  width: 100% !important;
+}
+
+.prose h1 {
+  @apply text-4xl font-bold mb-6 mt-8 text-slate-900 dark:text-gray-100 tracking-tight;
+}
+
+.prose h2 {
+  @apply text-3xl font-bold mb-4 mt-8 text-slate-900 dark:text-gray-100 border-b border-slate-200 dark:border-gray-700 pb-2 tracking-tight;
+}
+
+.prose h3 {
+  @apply text-2xl font-semibold mb-3 mt-6 text-slate-800 dark:text-gray-100 tracking-tight;
+}
+
+.prose h4 {
+  @apply text-xl font-semibold mb-2 mt-4 text-slate-800 dark:text-gray-100 tracking-tight;
+}
+
+.prose p {
+  @apply mb-5 text-slate-700 dark:text-gray-300 leading-7;
+}
+
+.prose ul, .prose ol {
+  @apply mb-5 ml-6;
+}
+
+.prose li {
+  @apply mb-2.5 text-slate-700 dark:text-gray-300 leading-7;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-indigo-500 dark:border-indigo-400 pl-6 pr-4 py-2 italic text-slate-600 dark:text-gray-400 my-6 bg-slate-50 dark:bg-gray-800/50 rounded-r-lg;
+}
+
+.prose a {
+  @apply text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 underline decoration-2 underline-offset-2 transition-colors;
+}
+
+.prose img {
+  @apply rounded-xl my-8 shadow-md border border-slate-200 dark:border-gray-700;
+}
+
+.prose table {
+  @apply w-full border-collapse mb-6 rounded-lg overflow-hidden shadow-sm;
+}
+
+.prose th {
+  @apply border border-slate-200 dark:border-gray-700 px-4 py-3 bg-slate-50 dark:bg-gray-800 font-semibold text-left text-slate-900 dark:text-gray-100;
+}
+
+.prose td {
+  @apply border border-slate-200 dark:border-gray-700 px-4 py-3 text-slate-700 dark:text-gray-300;
+}
+
+.prose hr {
+  @apply my-8 border-slate-200 dark:border-gray-700;
+}
+
+.prose code {
+  @apply bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200 dark:border-gray-700;
+}
+
+/* ============================================
+   全局滚动条样式优化
+   ============================================ */
+
+/* WebKit 浏览器 (Chrome, Safari, Edge) 滚动条样式 - 亮色模式 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5); /* slate-100/50 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6); /* slate-400/60 */
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8); /* slate-500/80 */
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: rgba(71, 85, 105, 0.9); /* slate-600/90 */
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: rgba(241, 245, 249, 0.5); /* slate-100/50 */
+}
+
+/* WebKit 浏览器滚动条样式 - 暗色模式 */
+.dark ::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.5); /* gray-900/50 */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.6); /* gray-600/60 */
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.8); /* gray-500/80 */
+}
+
+.dark ::-webkit-scrollbar-thumb:active {
+  background: rgba(156, 163, 175, 0.9); /* gray-400/90 */
+}
+
+.dark ::-webkit-scrollbar-corner {
+  background: rgba(17, 24, 39, 0.5); /* gray-900/50 */
+}
+
+/* Firefox 滚动条样式 - 亮色模式 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.6) rgba(241, 245, 249, 0.5); /* thumb track */
+}
+
+/* Firefox 滚动条样式 - 暗色模式 */
+.dark * {
+  scrollbar-color: rgba(75, 85, 99, 0.6) rgba(17, 24, 39, 0.5); /* thumb track */
+}
+
+/* 特定元素的滚动条样式优化 */
+.prose pre::-webkit-scrollbar,
+.prose pre[class*="language-"]::-webkit-scrollbar,
+.prose div[class*="language-"]::-webkit-scrollbar {
+  height: 8px;
+}
+
+.prose pre::-webkit-scrollbar-thumb,
+.prose pre[class*="language-"]::-webkit-scrollbar-thumb,
+.prose div[class*="language-"]::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.7); /* slate-500/70 */
+}
+
+.dark .prose pre::-webkit-scrollbar-thumb,
+.dark .prose pre[class*="language-"]::-webkit-scrollbar-thumb,
+.dark .prose div[class*="language-"]::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.7); /* gray-500/70 */
+}
+
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 优化移动端滚动体验 */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}

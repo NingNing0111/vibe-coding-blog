@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 import math
 
 from app.core.database import get_db
+from app.core.config_loader import get_email_config
 from app.api.dependencies import get_current_user, get_current_admin
 from app.schemas.comment import CommentCreate, CommentResponse, CommentListResponse
 from app.schemas.pagination import PaginatedResponse
@@ -105,7 +106,8 @@ async def create_comment(
     await db.commit()
     await db.refresh(new_comment)
     
-    # 发送邮件通知
+    # 从数据库读取邮箱配置并发送通知
+    email_config = await get_email_config(db)
     # 1. 通知管理员有新评论
     admin_result = await db.execute(select(User).where(User.role == UserRole.ADMIN))
     admin = admin_result.scalar_one_or_none()
@@ -114,9 +116,9 @@ async def create_comment(
             admin.email,
             post.title,
             comment_data.content,
-            current_user.username
+            current_user.username,
+            smtp_config=email_config,
         )
-    
     # 2. 如果是回复，通知被回复的用户
     if comment_data.parent_id:
         parent_result = await db.execute(
@@ -130,7 +132,8 @@ async def create_comment(
                 parent_comment.user.email,
                 post.title,
                 comment_data.content,
-                current_user.username
+                current_user.username,
+                smtp_config=email_config,
             )
     
     return new_comment

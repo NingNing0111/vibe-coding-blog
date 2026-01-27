@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
+from app.core.config_loader import get_email_config
 from app.core.security import (
     verify_password,
     get_password_hash,
@@ -15,7 +16,6 @@ from app.core.security import (
 from app.core.redis_client import get_redis, set_cache, get_cache, delete_cache
 from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse
 from app.models.user import User, UserRole
-from app.core.config import settings
 from app.api.dependencies import get_current_user
 from app.services.email_service import email_service
 
@@ -44,14 +44,14 @@ async def send_verification_code(email: str, db: AsyncSession = Depends(get_db))
         ttl=300
     )
     
-    # 发送邮件
-    await email_service.send_verification_code(email, code)
+    # 从数据库读取邮箱配置并发送
+    email_config = await get_email_config(db)
+    await email_service.send_verification_code(email, code, smtp_config=email_config)
     
-    # 开发环境也返回验证码
     response = {"message": "验证码已发送"}
-    if not email_service.enabled:
-        response["code"] = code  # 开发环境返回验证码
-    
+    # 邮箱未配置时在响应里带出验证码，便于开发调试
+    if not (email_config.get("smtp_host") and email_config.get("smtp_user") and email_config.get("smtp_password")):
+        response["code"] = code
     return response
 
 

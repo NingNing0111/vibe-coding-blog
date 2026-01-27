@@ -23,8 +23,16 @@ router = APIRouter()
 
 
 @router.post("/send-verification-code", status_code=status.HTTP_200_OK)
-async def send_verification_code(email: str):
+async def send_verification_code(email: str, db: AsyncSession = Depends(get_db)):
     """发送邮箱验证码"""
+    # 检查邮箱是否已注册，已注册则不发送验证码
+    result = await db.execute(select(User).where(User.email == email))
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该邮箱已被注册"
+        )
+
     # 生成6位验证码
     code = str(random.randint(100000, 999999))
     

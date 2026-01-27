@@ -9,29 +9,40 @@ from app.models.comment import Comment
 router = APIRouter()
 
 
+def _compute_stats(db_result_views, db_result_comments, db_result_posts):
+    """共用统计逻辑"""
+    return {
+        "total_views": int(db_result_views or 0),
+        "total_comments": int(db_result_comments or 0),
+        "total_posts": int(db_result_posts or 0),
+    }
+
+
+@router.get("/")
+async def get_statistics(db: AsyncSession = Depends(get_db)):
+    """获取全站统计信息（前端仪表盘用）"""
+    total_views = await db.scalar(
+        select(func.sum(Post.view_count)).where(Post.status == "PUBLISHED")
+    )
+    total_comments = await db.scalar(
+        select(func.count(Comment.id)).where(Comment.is_deleted == False)
+    )
+    total_posts = await db.scalar(
+        select(func.count(Post.id)).where(Post.status == "PUBLISHED")
+    )
+    return _compute_stats(total_views, total_comments, total_posts)
+
+
 @router.get("/overview")
 async def get_statistics_overview(db: AsyncSession = Depends(get_db)):
-    """获取全站统计信息"""
-    # 总阅读量
+    """获取全站统计信息（overview 别名，与 / 返回一致）"""
     total_views = await db.scalar(
-        select(func.sum(Post.view_count))
-        .where(Post.status == "PUBLISHED")
-    ) or 0
-    
-    # 总评论数
+        select(func.sum(Post.view_count)).where(Post.status == "PUBLISHED")
+    )
     total_comments = await db.scalar(
-        select(func.count(Comment.id))
-        .where(Comment.is_deleted == False)
-    ) or 0
-    
-    # 文章总数
+        select(func.count(Comment.id)).where(Comment.is_deleted == False)
+    )
     total_posts = await db.scalar(
-        select(func.count(Post.id))
-        .where(Post.status == "PUBLISHED")
-    ) or 0
-    
-    return {
-        "total_views": int(total_views),
-        "total_comments": int(total_comments),
-        "total_posts": int(total_posts)
-    }
+        select(func.count(Post.id)).where(Post.status == "PUBLISHED")
+    )
+    return _compute_stats(total_views, total_comments, total_posts)

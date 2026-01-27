@@ -51,12 +51,28 @@ interface LLMConfig {
   llm_model: string
 }
 
+interface PromptConfig {
+  polish_system_prompt: string
+}
+
+interface FriendlyLink {
+  name: string
+  url: string
+  description?: string
+}
+
+interface FriendlyLinksConfig {
+  links: FriendlyLink[]
+}
+
 interface AllConfigs {
   site_basic: SiteBasicConfig
   blogger: BloggerConfig
   oss: OSSConfig
   email: EmailConfig
   llm: LLMConfig
+  prompt: PromptConfig
+  friendly_links: FriendlyLinksConfig
 }
 
 const SOCIAL_TYPES = [
@@ -96,9 +112,9 @@ export default function ConfigPage() {
       // 设置表单值，确保所有字段都有默认值
       form.setFieldsValue({
         site_basic: {
-          site_title: data.site_basic?.site_title || '',
-          site_subtitle: data.site_basic?.site_subtitle || '',
-          site_description: data.site_basic?.site_description || '',
+          site_title: data.site_basic?.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || '',
+          site_subtitle: data.site_basic?.site_subtitle || process.env.NEXT_PUBLIC_SITE_SUBTITLE || '',
+          site_description: data.site_basic?.site_description || process.env.NEXT_PUBLIC_SITE_DESCRIPTION || '',
           site_keywords: data.site_basic?.site_keywords || '',
           site_logo: data.site_basic?.site_logo || '',
           site_copyright: data.site_basic?.site_copyright || '',
@@ -127,6 +143,12 @@ export default function ConfigPage() {
           llm_api_key: data.llm?.llm_api_key || '',
           llm_base_url: data.llm?.llm_base_url || 'https://api.openai.com/v1',
           llm_model: data.llm?.llm_model || 'gpt-3.5-turbo',
+        },
+        prompt: {
+          polish_system_prompt: data.prompt?.polish_system_prompt || '你是一个专业的文案编辑助手。',
+        },
+        friendly_links: {
+          links: data.friendly_links?.links || [],
         },
       })
     } catch (error) {
@@ -183,7 +205,7 @@ export default function ConfigPage() {
       </div>
 
       <Form form={form} layout="vertical" className="space-y-6">
-        <Collapse defaultActiveKey={['1', '2', '3', '4', '5']} ghost>
+        <Collapse defaultActiveKey={['1', '2', '3', '4', '5', '6', '7']} ghost>
           {/* 网站基本配置 */}
           <Panel header="网站基本配置" key="1">
             <Card>
@@ -417,6 +439,85 @@ export default function ConfigPage() {
               >
                 <Input placeholder="例如：gpt-3.5-turbo" />
               </Form.Item>
+            </Card>
+          </Panel>
+
+          {/* 提示词配置 */}
+          <Panel header="提示词配置" key="6">
+            <Card>
+              <Form.Item
+                label="文案润色系统提示词"
+                name={['prompt', 'polish_system_prompt']}
+                tooltip="这是AI润色功能使用的系统提示词，用于指导AI如何润色文案"
+              >
+                <TextArea
+                  rows={4}
+                  placeholder="例如：你是一个专业的文案编辑助手。"
+                />
+              </Form.Item>
+              <div className="text-sm text-gray-500 mt-2">
+                <p>提示：系统提示词会影响AI润色的风格和效果，建议根据你的需求进行调整。</p>
+              </div>
+            </Card>
+          </Panel>
+
+          {/* 友链配置 */}
+          <Panel header="友链配置" key="7">
+            <Card>
+              <Form.List name={['friendly_links', 'links']}>
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, ...restField }) => (
+                      <div key={key} className="p-4 border border-gray-100 rounded-lg mb-4 bg-gray-50/50">
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="font-medium text-gray-500">友链 #{name + 1}</span>
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => remove(name)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Form.Item
+                            {...restField}
+                            label="名称"
+                            name={[name, 'name']}
+                            rules={[{ required: true, message: '请输入友链名称' }]}
+                          >
+                            <Input placeholder="例如：我的主页" />
+                          </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            label="链接 URL"
+                            name={[name, 'url']}
+                            rules={[{ required: true, message: '请输入友链链接' }]}
+                          >
+                            <Input placeholder="https://example.com" />
+                          </Form.Item>
+                        </div>
+                        <Form.Item
+                          {...restField}
+                          label="描述"
+                          name={[name, 'description']}
+                        >
+                          <Input placeholder="可选的描述信息" />
+                        </Form.Item>
+                      </div>
+                    ))}
+                    <Form.Item>
+                      <Button
+                        type="dashed"
+                        onClick={() => add()}
+                        block
+                        icon={<PlusOutlined />}
+                      >
+                        添加友情链接
+                      </Button>
+                    </Form.Item>
+                  </>
+                )}
+              </Form.List>
             </Card>
           </Panel>
         </Collapse>

@@ -75,6 +75,23 @@ class LLMConfig(BaseModel):
     llm_model: str = "gpt-3.5-turbo"
 
 
+class PromptConfig(BaseModel):
+    """提示词配置"""
+    polish_system_prompt: str = "你是一个专业的文案编辑助手。"
+
+
+class FriendlyLink(BaseModel):
+    """友链配置"""
+    name: str
+    url: str
+    description: Optional[str] = ""
+
+
+class FriendlyLinksConfig(BaseModel):
+    """友链列表配置"""
+    links: List[FriendlyLink] = []
+
+
 class AllConfigs(BaseModel):
     """所有配置的集合"""
     site_basic: SiteBasicConfig
@@ -82,9 +99,12 @@ class AllConfigs(BaseModel):
     oss: OSSConfig
     email: EmailConfig
     llm: LLMConfig
+    prompt: PromptConfig
+    friendly_links: FriendlyLinksConfig
 
 
 class PublicConfigs(BaseModel):
     """对外可见的配置集合"""
     site_basic: SiteBasicConfig
     blogger: BloggerConfig
+    friendly_links: FriendlyLinksConfig

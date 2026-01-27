@@ -10,7 +10,7 @@ class PostCreate(BaseModel):
     excerpt: Optional[str] = None
     cover_image: Optional[str] = None
     status: str = "DRAFT"
-    category_id: Optional[int] = None
+    category_ids: List[int] = []
     tag_ids: List[int] = []
 
 
@@ -21,7 +21,7 @@ class PostUpdate(BaseModel):
     excerpt: Optional[str] = None
     cover_image: Optional[str] = None
     status: Optional[str] = None
-    category_id: Optional[int] = None
+    category_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
 
 
@@ -63,7 +63,7 @@ class PostResponse(BaseModel):
     view_count: int
     comment_count: int
     author: AuthorResponse
-    category: Optional[CategoryResponse] = None
+    categories: List[CategoryResponse] = []
     tags: List[TagResponse] = []
     created_at: datetime
     updated_at: datetime
@@ -83,7 +83,7 @@ class PostListResponse(BaseModel):
     view_count: int
     comment_count: int
     author: AuthorResponse
-    category: Optional[CategoryResponse] = None
+    categories: List[CategoryResponse] = []
     tags: List[TagResponse] = []
     created_at: datetime
     published_at: Optional[datetime] = None

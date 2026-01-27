@@ -5,34 +5,52 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { apiGet } from '@/lib/api'
 import { removeTokenCookie, removeRefreshTokenCookie } from '@/lib/utils'
+import { useConfig } from '@/contexts/ConfigContext'
 import {
-  LayoutDashboard,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Settings,
-  Home,
-  LogOut,
-  User,
-  Image,
-  ChevronRight,
-} from 'lucide-react'
+  Layout,
+  Menu,
+  Breadcrumb,
+  Avatar,
+  Dropdown,
+  Space,
+  Button,
+  Typography,
+} from 'antd'
+import type { MenuProps } from 'antd'
+import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  DashboardOutlined,
+  FileTextOutlined,
+  FolderOutlined,
+  TagOutlined,
+  CommentOutlined,
+  PictureOutlined,
+  SettingOutlined,
+  HomeOutlined,
+  LogoutOutlined,
+  UserOutlined,
+  CodeOutlined,
+} from '@ant-design/icons'
+
+const { Header, Sider, Content } = Layout
+const { Text } = Typography
 
 interface MenuItem {
-  href: string
+  key: string
   label: string
   icon: React.ReactNode
+  path: string
 }
 
 const menuItems: MenuItem[] = [
-  { href: '/admin', label: '仪表盘', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { href: '/admin/posts', label: '文章管理', icon: <FileText className="w-5 h-5" /> },
-  { href: '/admin/categories', label: '分类管理', icon: <FolderTree className="w-5 h-5" /> },
-  { href: '/admin/tags', label: '标签管理', icon: <Tag className="w-5 h-5" /> },
-  { href: '/admin/comments', label: '评论管理', icon: <MessageSquare className="w-5 h-5" /> },
-  { href: '/admin/media', label: '媒体资源', icon: <Image className="w-5 h-5" /> },
-  { href: '/admin/config', label: '配置管理', icon: <Settings className="w-5 h-5" /> },
+  { key: '/admin', label: '仪表盘', icon: <DashboardOutlined />, path: '/admin' },
+  { key: '/admin/posts', label: '文章管理', icon: <FileTextOutlined />, path: '/admin/posts' },
+  { key: '/admin/categories', label: '分类管理', icon: <FolderOutlined />, path: '/admin/categories' },
+  { key: '/admin/tags', label: '标签管理', icon: <TagOutlined />, path: '/admin/tags' },
+  { key: '/admin/comments', label: '评论管理', icon: <CommentOutlined />, path: '/admin/comments' },
+  { key: '/admin/media', label: '媒体资源', icon: <PictureOutlined />, path: '/admin/media' },
+  { key: '/admin/config', label: '配置管理', icon: <SettingOutlined />, path: '/admin/config' },
 ]
 
 // 路由到标签的映射
@@ -55,7 +73,9 @@ export default function AdminLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { config } = useConfig()
   const [user, setUser] = useState<any>(null)
+  const [collapsed, setCollapsed] = useState(false)
   const hasFetchedUser = useRef(false)
 
   useEffect(() => {
@@ -87,19 +107,19 @@ export default function AdminLayout({
   }
 
   // 生成面包屑
-  const breadcrumbs = useMemo(() => {
+  const breadcrumbItems = useMemo(() => {
     if (!pathname) return []
     
     const paths = pathname.split('/').filter(Boolean)
-    const crumbs: Array<{ label: string; href: string }> = []
+    const items: Array<{ title: string; href?: string }> = []
 
     // 如果路径就是 /admin，只显示首页
     if (paths.length === 1 && paths[0] === 'admin') {
-      return [{ label: '仪表盘', href: '' }]
+      return [{ title: '仪表盘' }]
     }
 
     let currentPath = '/admin'
-    crumbs.push({ label: '仪表盘', href: '/admin' })
+    items.push({ title: '仪表盘', href: '/admin' })
 
     // 跳过 admin 本身，从第二个路径段开始处理
     for (let i = 1; i < paths.length; i++) {
@@ -137,107 +157,187 @@ export default function AdminLayout({
 
       // 最后一个不添加链接
       if (i === paths.length - 1) {
-        crumbs.push({ label, href: '' })
+        items.push({ title: label })
       } else {
         // 如果下一个是数字ID，当前路径也不添加链接（因为数字ID会被跳过）
         const nextSegment = paths[i + 1]
         if (nextSegment && /^\d+$/.test(nextSegment)) {
-          crumbs.push({ label, href: '' })
+          items.push({ title: label })
         } else {
-          crumbs.push({ label, href: currentPath })
+          items.push({ title: label, href: currentPath })
         }
       }
     }
 
-    return crumbs
+    return items
   }, [pathname])
 
+  // 获取当前选中的菜单项
+  const selectedKeys = useMemo(() => {
+    if (!pathname) return ['/admin']
+    // 找到最匹配的菜单项
+    for (const item of menuItems) {
+      if (pathname === item.path || (item.path !== '/admin' && pathname.startsWith(item.path))) {
+        return [item.key]
+      }
+    }
+    return ['/admin']
+  }, [pathname])
+
+  // 菜单点击处理
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    const item = menuItems.find((m) => m.key === key)
+    if (item) {
+      router.push(item.path)
+    }
+  }
+
+  // 用户下拉菜单
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'home',
+      icon: <HomeOutlined />,
+      label: (
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          返回首页
+        </Link>
+      ),
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      danger: true,
+      onClick: handleLogout,
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* 左侧菜单栏 */}
-      <aside className="w-64 bg-white shadow-lg fixed left-0 top-0 bottom-0 overflow-y-auto">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">管理后台</h1>
+    <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        theme="light"
+        width={200}
+        style={{
+          overflow: 'auto',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
+          zIndex: 100,
+        }}
+      >
+        <div style={{ 
+          padding: '16px', 
+          borderBottom: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          height: '64px',
+          gap: '12px'
+        }}>
+          {config?.site_basic?.site_logo ? (
+            <img 
+              src={config.site_basic.site_logo} 
+              alt="Logo" 
+              style={{ 
+                width: collapsed ? '32px' : '32px', 
+                height: collapsed ? '32px' : '32px', 
+                objectFit: 'contain',
+                flexShrink: 0
+              }} 
+            />
+          ) : (
+            <CodeOutlined style={{ 
+              fontSize: collapsed ? '24px' : '24px', 
+              color: '#1890ff',
+              flexShrink: 0
+            }} />
+          )}
+          {!collapsed && (
+            <Text strong style={{ fontSize: '18px', color: '#1890ff', whiteSpace: 'nowrap' }}>
+              {config?.site_basic?.site_title || 'Blog Admin'}
+            </Text>
+          )}
         </div>
-        <nav className="p-4 space-y-2">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href))
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className={isActive ? 'text-indigo-600' : 'text-gray-500'}>
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-      </aside>
-
-      {/* 右侧内容区域 */}
-      <div className="flex-1 ml-64 flex flex-col">
-        {/* 顶部头部栏 */}
-        <header className="bg-white shadow-sm sticky top-0 z-10">
-          <div className="px-6 py-4 flex justify-between items-center">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors"
-            >
-              <Home className="w-5 h-5" />
-              <span>返回首页</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              {user && (
-                <div className="flex items-center gap-2 text-gray-700">
-                  <User className="w-4 h-4" />
-                  <span className="text-sm">{user.username}</span>
-                </div>
-              )}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>退出</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* 面包屑导航 */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
-          <nav className="flex items-center gap-2 text-sm">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={index} className="flex items-center gap-2">
-                {index > 0 && (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-                {crumb.href ? (
-                  <Link
-                    href={crumb.href}
-                    className="text-gray-600 hover:text-indigo-600 transition-colors"
-                  >
-                    {crumb.label}
+        <Menu
+          mode="inline"
+          selectedKeys={selectedKeys}
+          onClick={handleMenuClick}
+          items={menuItems.map((item) => ({
+            key: item.key,
+            icon: item.icon,
+            label: item.label,
+          }))}
+          style={{ borderRight: 0, marginTop: '4px' }}
+        />
+      </Sider>
+      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s', background: '#f5f7fa' }}>
+        <Header
+          style={{
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(8px)',
+            padding: '0 24px 0 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            height: '64px',
+            lineHeight: '64px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            borderBottom: '1px solid #f0f0f0',
+          }}
+        >
+          <Space size={0}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                fontSize: '16px',
+                width: 64,
+                height: 64,
+              }}
+            />
+            <Breadcrumb
+              items={breadcrumbItems.map((item) => ({
+                title: item.href ? (
+                  <Link href={item.href} style={{ color: 'rgba(0, 0, 0, 0.45)' }}>
+                    {item.title}
                   </Link>
                 ) : (
-                  <span className="text-gray-900 font-medium">{crumb.label}</span>
-                )}
-              </div>
-            ))}
-          </nav>
-        </div>
-
-        {/* 主内容区域 */}
-        <main className="flex-1 p-6 bg-gray-50">{children}</main>
-      </div>
-    </div>
+                  <span style={{ color: 'rgba(0, 0, 0, 0.85)', fontWeight: 500 }}>{item.title}</span>
+                ),
+              }))}
+            />
+          </Space>
+          <Space size={16}>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
+              <Space style={{ cursor: 'pointer', padding: '0 8px', borderRadius: '4px', transition: 'all 0.3s' }} className="user-dropdown-hover">
+                <Avatar 
+                  size="small" 
+                  icon={<UserOutlined />} 
+                  src={user?.avatar}
+                  style={{ backgroundColor: '#1890ff' }}
+                />
+                <Text strong style={{ fontSize: '14px' }}>{user?.username || '管理员'}</Text>
+              </Space>
+            </Dropdown>
+          </Space>
+        </Header>
+        <Content style={{ margin: '24px', minHeight: 280 }}>
+          {children}
+        </Content>
+      </Layout>
+    </Layout>
   )
 }

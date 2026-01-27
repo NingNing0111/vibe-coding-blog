@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button, Card, Row, Col, Space, Typography, Avatar, Tag, Divider, Spin, Empty } from 'antd'
 import {
   CodeOutlined,
@@ -20,33 +22,9 @@ import {
 } from '@ant-design/icons'
 import { apiGet } from '@/lib/api'
 import Link from 'next/link'
+import { useConfig } from '@/contexts/ConfigContext'
 
 // --- Interfaces ---
-
-interface SiteBasicConfig {
-  site_title: string
-  site_subtitle: string
-  site_description: string
-  site_keywords: string
-  site_logo: string
-  site_copyright: string
-}
-
-interface BloggerSocial {
-  type: string
-  value: string
-}
-
-interface BloggerConfig {
-  blogger_avatar: string
-  blogger_signature: string
-  blogger_socials: BloggerSocial[]
-}
-
-interface PublicConfigs {
-  site_basic: SiteBasicConfig
-  blogger: BloggerConfig
-}
 
 interface Post {
   id: number
@@ -63,11 +41,11 @@ interface Post {
     username: string
     avatar: string | null
   }
-  category: {
+  categories: Array<{
     id: number
     name: string
     slug: string
-  } | null
+  }>
   tags: Array<{
     id: number
     name: string
@@ -95,8 +73,8 @@ const SocialIcon = ({ type }: { type: string }) => {
 export default function Home() {
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { config, loading: configLoading } = useConfig()
   const [loading, setLoading] = useState(true)
-  const [config, setConfig] = useState<PublicConfigs | null>(null)
   const [recentPosts, setRecentPosts] = useState<Post[]>([])
   const hasCheckedInit = useRef(false)
 
@@ -117,28 +95,25 @@ export default function Home() {
         .catch(() => { })
     }
 
-    // 获取配置和文章
-    const fetchData = async () => {
+    // 获取文章
+    const fetchPosts = async () => {
       try {
         setLoading(true)
-        const [configData, postsData] = await Promise.all([
-          apiGet<PublicConfigs>('/api/v1/config/structured/all'),
-          apiGet<PaginatedResponse<Post>>('/api/v1/posts/published?page=1&size=3')
-        ])
-        setConfig(configData)
+        const postsData = await apiGet<PaginatedResponse<Post>>('/api/v1/posts/published?page=1&size=3')
         setRecentPosts(postsData.items || [])
       } catch (error) {
-        console.error('Failed to fetch homepage data:', error)
+        console.error('Failed to fetch recent posts:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    fetchPosts()
   }, [router])
 
-  const siteTitle = config?.site_basic?.site_title || '我的技术博客'
-  const siteSubtitle = config?.site_basic?.site_subtitle || '分享编程经验、技术见解与开发心得'
+  const siteTitle = config?.site_basic?.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || '我的技术博客'
+  const siteSubtitle = config?.site_basic?.site_subtitle || process.env.NEXT_PUBLIC_SITE_SUBTITLE || '分享编程经验、技术见解与开发心得'
+  const siteDescription = config?.site_basic?.site_description || process.env.NEXT_PUBLIC_SITE_DESCRIPTION
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
@@ -151,16 +126,30 @@ export default function Home() {
 
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <div className="inline-flex p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 mb-8 transition-colors duration-300 shadow-sm">
-            <CodeOutlined style={{ fontSize: '40px', color: '#1677ff' }} />
+            {config?.site_basic?.site_logo ? (
+              <img
+                src={config.site_basic.site_logo}
+                alt="Logo"
+                className="w-16 h-16 object-contain"
+              />
+            ) : (
+              <CodeOutlined style={{ fontSize: '40px', color: '#1677ff' }} />
+            )}
           </div>
 
           <Typography.Title level={1} className="!text-5xl md:!text-6xl !font-bold !text-gray-900 dark:!text-gray-100 !mb-6 tracking-tight">
             {siteTitle}
           </Typography.Title>
 
-          <Typography.Paragraph className="!text-xl md:!text-2xl !text-gray-600 dark:!text-gray-400 !mb-10 !max-w-2xl !mx-auto !leading-relaxed">
+          <Typography.Paragraph className="!text-xl md:!text-2xl !text-gray-600 dark:!text-gray-400 !mb-4 !max-w-2xl !mx-auto !leading-relaxed">
             {siteSubtitle}
           </Typography.Paragraph>
+
+          {siteDescription && (
+            <Typography.Paragraph className="!text-base !text-gray-500 dark:!text-gray-400 !mb-10 !max-w-2xl !mx-auto !leading-relaxed opacity-80">
+              {siteDescription}
+            </Typography.Paragraph>
+          )}
 
           <Space size="middle" wrap className="justify-center">
             <Link href="/posts">
@@ -191,7 +180,7 @@ export default function Home() {
           </Link>
         </div>
 
-        {loading ? (
+        {loading || configLoading ? (
           <div className="py-20 text-center"><Spin size="large" /></div>
         ) : recentPosts.length > 0 ? (
           <Row gutter={[32, 32]}>
@@ -215,22 +204,27 @@ export default function Home() {
                             <BookOutlined className="text-4xl text-white/50" />
                           </div>
                         )}
-                        {post.category && (
-                          <div className="absolute top-4 left-4">
-                            <Tag color="blue" className="!m-0 !px-3 !py-1 !rounded-full !backdrop-blur-md !bg-blue-500/80 !border-none !text-white">
-                              {post.category.name}
-                            </Tag>
-                          </div>
-                        )}
                       </div>
                     }
                   >
                     <Typography.Title level={4} className="!mb-3 !line-clamp-2 dark:!text-gray-100 group-hover:text-blue-600 transition-colors">
                       {post.title}
                     </Typography.Title>
-                    <Typography.Paragraph type="secondary" className="!mb-6 !line-clamp-2 !text-sm !min-h-[40px]">
+                    <Typography.Paragraph type="secondary" className="!mb-4 !line-clamp-2 !text-sm !min-h-[40px]">
                       {post.excerpt && post.excerpt.trim() ? post.excerpt : '暂无描述'}
                     </Typography.Paragraph>
+                    <div className="flex items-center gap-2 flex-wrap mb-4">
+                      {post.categories && post.categories.map((cat) => (
+                        <Tag key={cat.id} color="blue" className="!m-0 !px-2 !py-0.5 !rounded">
+                          {cat.name}
+                        </Tag>
+                      ))}
+                      {post.tags && post.tags.map((tag) => (
+                        <Tag key={tag.id} className="!m-0 !px-2 !py-0.5 !rounded !bg-gray-100 dark:!bg-gray-700 dark:!text-gray-300 !border-0">
+                          #{tag.name}
+                        </Tag>
+                      ))}
+                    </div>
                     <div className="flex items-center justify-between mt-auto">
                       <div className="flex items-center gap-2">
                         <Avatar size="small" src={post.author.avatar} icon={<UserOutlined />} />
@@ -267,9 +261,13 @@ export default function Home() {
                   <Typography.Title level={3} className="!mb-2 dark:!text-gray-100">
                     关于博主
                   </Typography.Title>
-                  <Typography.Paragraph className="!text-gray-600 dark:!text-gray-400 !mb-8 !text-lg !italic">
-                    "{config?.blogger?.blogger_signature || '追求卓越，进无止境。'}"
-                  </Typography.Paragraph>
+                  <div className="!text-gray-600 dark:!text-gray-400 !mb-8 !text-lg !italic prose dark:prose-invert max-w-none prose-p:my-0">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {config?.blogger?.blogger_signature
+                        ? `${config.blogger.blogger_signature}`
+                        : '追求卓越，进无止境。'}
+                    </ReactMarkdown>
+                  </div>
                   <div className="flex gap-4">
                     {config?.blogger?.blogger_socials?.map((social, index) => (
                       <a

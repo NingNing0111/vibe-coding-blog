@@ -26,24 +26,29 @@ async def get_published_posts(
     size: int = Query(10, ge=1, le=100),
     category_id: Optional[int] = None,
     tag_id: Optional[int] = None,
+    search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """获取已发布文章列表（不包含草稿）"""
-    cache_key = f"post:list:published:page:{page}:size:{size}:category:{category_id}:tag:{tag_id}"
+    cache_key = f"post:list:published:page:{page}:size:{size}:category:{category_id}:tag:{tag_id}:search:{search}"
     cached = await get_cache(cache_key)
     if cached:
         return json.loads(cached)
 
     query = select(Post).options(
         selectinload(Post.author),
-        selectinload(Post.category),
+        selectinload(Post.categories),
         selectinload(Post.tags)
     ).where(Post.status == PostStatus.PUBLISHED)
 
     if category_id:
-        query = query.where(Post.category_id == category_id)
+        query = query.join(Post.categories).where(Category.id == category_id)
     if tag_id:
         query = query.join(Post.tags).where(Tag.id == tag_id)
+    if search:
+        query = query.where(
+            (Post.title.ilike(f"%{search}%")) | (Post.content.ilike(f"%{search}%"))
+        )
 
     count_query = select(func.count()).select_from(query.subquery())
     total = await db.scalar(count_query) or 0
@@ -74,13 +79,14 @@ async def get_posts(
     size: int = Query(10, ge=1, le=100),
     category_id: Optional[int] = None,
     tag_id: Optional[int] = None,
+    search: Optional[str] = None,
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_admin: Optional[User] = Depends(get_optional_admin)
 ):
     """获取文章列表（管理员可以查看所有状态）"""
     # 尝试从缓存获取
-    cache_key = f"post:list:page:{page}:size:{size}:category:{category_id}:tag:{tag_id}:status:{status}:admin:{current_admin is not None}"
+    cache_key = f"post:list:page:{page}:size:{size}:category:{category_id}:tag:{tag_id}:search:{search}:status:{status}:admin:{current_admin is not None}"
     cached = await get_cache(cache_key)
     if cached:
         return json.loads(cached)
@@ -90,7 +96,7 @@ async def get_posts(
     # 构建查询
     base_query = select(Post).options(
         selectinload(Post.author),
-        selectinload(Post.category),
+        selectinload(Post.categories),
         selectinload(Post.tags)
     )
     
@@ -111,9 +117,13 @@ async def get_posts(
         query = base_query.where(Post.status == PostStatus.PUBLISHED)
     
     if category_id:
-        query = query.where(Post.category_id == category_id)
+        query = query.join(Post.categories).where(Category.id == category_id)
     if tag_id:
         query = query.join(Post.tags).where(Tag.id == tag_id)
+    if search:
+        query = query.where(
+            (Post.title.ilike(f"%{search}%")) | (Post.content.ilike(f"%{search}%"))
+        )
     
     # 计算总数（复制查询条件但不包含分页和排序）
     count_query = select(func.count()).select_from(query.subquery())
@@ -154,7 +164,7 @@ async def get_post_by_id(
         select(Post)
         .options(
             selectinload(Post.author),
-            selectinload(Post.category),
+            selectinload(Post.categories),
             selectinload(Post.tags)
         )
         .where(Post.id == post_id)
@@ -186,7 +196,7 @@ async def get_post(slug: str, db: AsyncSession = Depends(get_db)):
         select(Post)
         .options(
             selectinload(Post.author),
-            selectinload(Post.category),
+            selectinload(Post.categories),
             selectinload(Post.tags)
         )
         .where(Post.slug == slug)
@@ -226,13 +236,16 @@ async def create_post(
         )
     
     # 检查分类是否存在
-    if post_data.category_id:
-        result = await db.execute(select(Category).where(Category.id == post_data.category_id))
-        if not result.scalar_one_or_none():
+    if post_data.category_ids:
+        result = await db.execute(select(Category).where(Category.id.in_(post_data.category_ids)))
+        categories = result.scalars().all()
+        if len(categories) != len(post_data.category_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="分类不存在"
+                detail="部分分类不存在"
             )
+    else:
+        categories = []
     
     # 检查标签是否存在
     if post_data.tag_ids:
@@ -255,21 +268,21 @@ async def create_post(
         cover_image=post_data.cover_image,
         status=post_data.status,
         author_id=current_user.id,
-        category_id=post_data.category_id,
         published_at=datetime.utcnow() if post_data.status == PostStatus.PUBLISHED.value else None
     )
+    new_post.categories = categories
     new_post.tags = tags
     
     db.add(new_post)
     await db.commit()
     await db.refresh(new_post)
     
-    # 重新查询以加载关联数据（author, category, tags）
+    # 重新查询以加载关联数据（author, categories, tags）
     result = await db.execute(
         select(Post)
         .options(
             selectinload(Post.author),
-            selectinload(Post.category),
+            selectinload(Post.categories),
             selectinload(Post.tags)
         )
         .where(Post.id == new_post.id)
@@ -294,7 +307,7 @@ async def update_post(
         select(Post)
         .options(
             selectinload(Post.author),
-            selectinload(Post.category),
+            selectinload(Post.categories),
             selectinload(Post.tags)
         )
         .where(Post.id == post_id)
@@ -330,27 +343,21 @@ async def update_post(
         post.status = post_data.status
         if post_data.status == PostStatus.PUBLISHED.value and not post.published_at:
             post.published_at = datetime.utcnow()
-    if post_data.category_id is not None:
-        if post_data.category_id:
-            result = await db.execute(select(Category).where(Category.id == post_data.category_id))
-            if not result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="分类不存在"
-                )
-        post.category_id = post_data.category_id
+    if post_data.category_ids is not None:
+        result = await db.execute(select(Category).where(Category.id.in_(post_data.category_ids)))
+        post.categories = result.scalars().all()
     if post_data.tag_ids is not None:
         result = await db.execute(select(Tag).where(Tag.id.in_(post_data.tag_ids)))
         post.tags = result.scalars().all()
     
     await db.commit()
     
-    # 重新查询以加载关联数据（author, category, tags）
+    # 重新查询以加载关联数据（author, categories, tags）
     result = await db.execute(
         select(Post)
         .options(
             selectinload(Post.author),
-            selectinload(Post.category),
+            selectinload(Post.categories),
             selectinload(Post.tags)
         )
         .where(Post.id == post_id)

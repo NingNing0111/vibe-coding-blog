@@ -2,7 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { apiGet, apiPost, apiDelete } from '@/lib/api'
-import { Upload, Trash2, Search, X, FileImage, File, Download } from 'lucide-react'
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Popconfirm,
+  message,
+  Input,
+  Select,
+  Image,
+  Tag,
+  Card,
+  Row,
+  Col,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import {
+  UploadOutlined,
+  DeleteOutlined,
+  CopyOutlined,
+  DownloadOutlined,
+  FileImageOutlined,
+  FileOutlined,
+  SearchOutlined,
+} from '@ant-design/icons'
+
+const { Title } = Typography
+const { Search } = Input
 
 interface Media {
   id: number
@@ -29,7 +56,7 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
   const [keyword, setKeyword] = useState('')
   const [fileTypeFilter, setFileTypeFilter] = useState('')
@@ -39,7 +66,7 @@ export default function MediaPage() {
 
   useEffect(() => {
     fetchMediaList()
-  }, [page, searchKeyword, fileTypeFilter])
+  }, [page, pageSize, searchKeyword, fileTypeFilter])
 
   const fetchMediaList = async () => {
     if (fetchingRef.current) {
@@ -51,7 +78,7 @@ export default function MediaPage() {
       setLoading(true)
       const params = new URLSearchParams({
         page: page.toString(),
-        size: '20',
+        size: pageSize.toString(),
       })
       if (searchKeyword) {
         params.append('keyword', searchKeyword)
@@ -62,10 +89,10 @@ export default function MediaPage() {
 
       const data = await apiGet<PaginatedResponse>(`/api/v1/media/?${params.toString()}`)
       setMediaList(data.items)
-      setTotalPages(data.pages)
       setTotal(data.total)
     } catch (error) {
       console.error('获取媒体资源列表失败:', error)
+      message.error('获取媒体资源列表失败')
     } finally {
       setLoading(false)
       fetchingRef.current = false
@@ -106,10 +133,10 @@ export default function MediaPage() {
             })
             // 刷新列表
             fetchMediaList()
-            alert('上传成功')
+            message.success('上传成功')
           } catch (error: any) {
             console.error('保存文件信息失败:', error)
-            alert('文件已上传，但保存信息失败: ' + (error.message || '未知错误'))
+            message.error('文件已上传，但保存信息失败: ' + (error.message || '未知错误'))
           }
         } else {
           throw new Error('上传失败')
@@ -121,7 +148,7 @@ export default function MediaPage() {
       })
 
       xhr.addEventListener('error', () => {
-        alert('上传失败')
+        message.error('上传失败')
         setUploading(false)
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
@@ -132,7 +159,7 @@ export default function MediaPage() {
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
       xhr.send(file)
     } catch (error: any) {
-      alert(error.message || '上传失败')
+      message.error(error.message || '上传失败')
       setUploading(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -140,22 +167,19 @@ export default function MediaPage() {
     }
   }
 
-  const handleDelete = async (id: number, fileName: string) => {
-    if (!confirm(`确定要删除文件 "${fileName}" 吗？`)) {
-      return
-    }
-
+  const handleDelete = async (id: number) => {
     try {
       await apiDelete(`/api/v1/media/${id}`)
+      message.success('删除成功')
       fetchMediaList()
     } catch (error) {
       console.error('删除失败:', error)
-      alert('删除失败')
+      message.error('删除失败')
     }
   }
 
-  const handleSearch = () => {
-    setSearchKeyword(keyword)
+  const handleSearch = (value: string) => {
+    setSearchKeyword(value)
     setPage(1)
   }
 
@@ -174,234 +198,207 @@ export default function MediaPage() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 
-  const getFileIcon = (fileType: string) => {
+  const getFileTypeTag = (fileType: string) => {
     if (fileType.startsWith('image/')) {
-      return <FileImage className="w-5 h-5 text-blue-500" />
+      return <Tag color="blue">图片</Tag>
+    } else if (fileType.startsWith('video/')) {
+      return <Tag color="purple">视频</Tag>
+    } else if (fileType.startsWith('audio/')) {
+      return <Tag color="green">音频</Tag>
+    } else {
+      return <Tag>文档</Tag>
     }
-    return <File className="w-5 h-5 text-gray-500" />
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert('已复制到剪贴板')
+      message.success('已复制到剪贴板')
     })
   }
 
-  if (loading && mediaList.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center">加载中...</div>
-      </div>
-    )
-  }
+  const columns: ColumnsType<Media> = [
+    {
+      title: '预览',
+      dataIndex: 'file_url',
+      key: 'preview',
+      width: 100,
+      render: (url: string, record: Media) =>
+        record.file_type.startsWith('image/') ? (
+          <Image
+            src={url}
+            alt={record.file_name}
+            width={60}
+            height={60}
+            style={{ objectFit: 'cover', borderRadius: 4 }}
+            preview={false}
+          />
+        ) : (
+          <FileOutlined style={{ fontSize: 32, color: '#8c8c8c' }} />
+        ),
+    },
+    {
+      title: '文件名',
+      dataIndex: 'file_name',
+      key: 'file_name',
+      width: 200,
+    },
+    {
+      title: '文件类型',
+      dataIndex: 'file_type',
+      key: 'file_type',
+      width: 150,
+      render: (fileType: string) => getFileTypeTag(fileType),
+    },
+    {
+      title: '文件大小',
+      dataIndex: 'file_size',
+      key: 'file_size',
+      width: 120,
+      render: (size: number) => formatFileSize(size),
+    },
+    {
+      title: '文件URL',
+      dataIndex: 'file_url',
+      key: 'file_url',
+      ellipsis: true,
+      render: (url: string) => (
+        <Space>
+          <span style={{ maxWidth: 300, display: 'inline-block' }}>{url}</span>
+          <Button
+            type="link"
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={() => copyToClipboard(url)}
+          >
+            复制
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            icon={<DownloadOutlined />}
+            href={url}
+            target="_blank"
+          >
+            下载
+          </Button>
+        </Space>
+      ),
+    },
+    {
+      title: '上传时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (date: string) => new Date(date).toLocaleString('zh-CN'),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      fixed: 'right',
+      render: (_: any, record: Media) => (
+        <Popconfirm
+          title={`确定要删除文件 "${record.file_name}" 吗？`}
+          onConfirm={() => handleDelete(record.id)}
+          okText="确定"
+          cancelText="取消"
+        >
+          <Button type="link" danger icon={<DeleteOutlined />}>
+            删除
+          </Button>
+        </Popconfirm>
+      ),
+    },
+  ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">媒体资源管理</h1>
-        <div className="flex items-center gap-4">
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={2} style={{ margin: 0 }}>
+          媒体资源管理
+        </Title>
+        <div>
           <input
             ref={fileInputRef}
             type="file"
-            className="hidden"
+            style={{ display: 'none' }}
             onChange={handleFileSelect}
             disabled={uploading}
           />
-          <button
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            loading={uploading}
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            <Upload className="w-4 h-4" />
             {uploading ? '上传中...' : '上传文件'}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* 搜索和筛选 */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">搜索文件名</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="输入文件名关键词..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={handleSearch}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-              >
-                <Search className="w-4 h-4" />
-                搜索
-              </button>
-              {(searchKeyword || fileTypeFilter) && (
-                <button
-                  onClick={handleClearSearch}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  清除
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="w-48">
-            <label className="block text-sm font-medium text-gray-700 mb-1">文件类型</label>
-            <select
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col flex="auto">
+            <Search
+              placeholder="搜索文件名"
+              allowClear
+              enterButton={<SearchOutlined />}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              onSearch={handleSearch}
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col span={6}>
+            <Select
+              placeholder="文件类型"
+              allowClear
               value={fileTypeFilter}
-              onChange={(e) => {
-                setFileTypeFilter(e.target.value)
+              onChange={(value) => {
+                setFileTypeFilter(value || '')
                 setPage(1)
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ width: '100%' }}
             >
-              <option value="">全部类型</option>
-              <option value="image">图片</option>
-              <option value="video">视频</option>
-              <option value="audio">音频</option>
-              <option value="application">文档</option>
-            </select>
-          </div>
-        </div>
-      </div>
+              <Select.Option value="image">图片</Select.Option>
+              <Select.Option value="video">视频</Select.Option>
+              <Select.Option value="audio">音频</Select.Option>
+              <Select.Option value="application">文档</Select.Option>
+            </Select>
+          </Col>
+          {(searchKeyword || fileTypeFilter) && (
+            <Col>
+              <Button onClick={handleClearSearch}>清除筛选</Button>
+            </Col>
+          )}
+        </Row>
+      </Card>
 
-      {/* 统计信息 */}
-      <div className="mb-4 text-sm text-gray-600">
-        共 {total} 个文件
-      </div>
-
-      {/* 文件列表 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  预览
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  文件名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  文件类型
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  文件大小
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  文件URL
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  上传时间
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {mediaList.map((media) => (
-                <tr key={media.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {media.file_type.startsWith('image/') ? (
-                      <img
-                        src={media.file_url}
-                        alt={media.file_name}
-                        className="w-16 h-16 object-cover rounded"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      getFileIcon(media.file_type)
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{media.file_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{media.file_type}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{formatFileSize(media.file_size)}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 max-w-md">
-                      <div className="text-sm text-gray-500 truncate flex-1">{media.file_url}</div>
-                      <button
-                        onClick={() => copyToClipboard(media.file_url)}
-                        className="text-indigo-600 hover:text-indigo-800 text-xs"
-                        title="复制URL"
-                      >
-                        复制
-                      </button>
-                      <a
-                        href={media.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:text-indigo-800"
-                        title="打开链接"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {new Date(media.created_at).toLocaleString('zh-CN')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleDelete(media.id, media.file_name)}
-                      className="text-red-600 hover:text-red-900 flex items-center gap-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {mediaList.length === 0 && !loading && (
-          <div className="text-center py-12 text-gray-500">
-            暂无媒体资源
-          </div>
-        )}
-
-        {/* 分页 */}
-        {totalPages > 1 && (
-          <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-              第 {page} 页，共 {totalPages} 页
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                上一页
-              </button>
-              <button
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                下一页
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <Table
+        columns={columns}
+        dataSource={mediaList}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: page,
+          pageSize: pageSize,
+          total: total,
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 个文件`,
+          onChange: (page, pageSize) => {
+            setPage(page)
+            setPageSize(pageSize)
+          },
+        }}
+        scroll={{ x: 1200 }}
+        style={{
+          background: '#fff',
+          borderRadius: 8,
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
+        }}
+        size="middle"
+      />
     </div>
   )
 }

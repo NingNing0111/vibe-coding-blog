@@ -168,9 +168,9 @@ export default function SetupPage() {
         verification_code: values.verification_code,
         configs: {
           site_basic: {
-            site_title: values.site_title || '',
-            site_subtitle: values.site_subtitle || '',
-            site_description: values.site_description || '',
+            site_title: values.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || '',
+            site_subtitle: values.site_subtitle || process.env.NEXT_PUBLIC_SITE_SUBTITLE || '',
+            site_description: values.site_description || process.env.NEXT_PUBLIC_SITE_DESCRIPTION || '',
             site_keywords: values.site_keywords || '',
             site_logo: values.site_logo || '',
             site_copyright: values.site_copyright || '',
@@ -258,6 +258,11 @@ export default function SetupPage() {
           form={form}
           layout="vertical"
           className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
+          initialValues={{
+            site_title: process.env.NEXT_PUBLIC_SITE_TITLE || 'Tech Blog',
+            site_subtitle: process.env.NEXT_PUBLIC_SITE_SUBTITLE || '分享编程经验、技术见解与开发心得',
+            site_description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION || '一个专注于技术分享的博客平台',
+          }}
         >
           {error && (
             <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded">

@@ -1,7 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Popconfirm,
+  message,
+  Modal,
+  Form,
+  Input,
+  Select,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+
+const { Title } = Typography
+const { TextArea } = Input
 
 interface Category {
   id: number
@@ -20,33 +38,46 @@ interface PaginatedResponse<T> {
 }
 
 export default function CategoriesPage() {
+  const pathname = usePathname()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
-  const [showForm, setShowForm] = useState(false)
+  const [modalVisible, setModalVisible] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    description: '',
-    parent_id: null as number | null,
-  })
+  const [form] = Form.useForm()
+  const prevPathnameRef = useRef<string | null>(null)
 
   useEffect(() => {
     fetchCategories()
-  }, [page])
+  }, [page, pageSize])
 
-  const fetchCategories = async () => {
+  // 监听路由变化，当从其他页面返回时自动刷新
+  useEffect(() => {
+    const prevPathname = prevPathnameRef.current
+    prevPathnameRef.current = pathname
+
+    // 如果路径变化回到分类管理页面，刷新数据
+    if (prevPathname && prevPathname !== pathname && pathname === '/admin/categories') {
+      fetchCategories()
+    }
+  }, [pathname])
+
+  const fetchCategories = async (forceRefresh = false) => {
     try {
       setLoading(true)
-      const data = await apiGet<PaginatedResponse<Category>>(`/api/v1/categories/?page=${page}&size=10`)
+      // 添加时间戳参数以绕过缓存（如果需要强制刷新）
+      const timestamp = forceRefresh ? `&_t=${Date.now()}` : ''
+      const data = await apiGet<PaginatedResponse<Category>>(
+        `/api/v1/categories/?page=${page}&size=${pageSize}${timestamp}`,
+        false // 不使用请求去重，确保获取最新数据
+      )
       setCategories(data.items)
-      setTotalPages(data.pages)
       setTotal(data.total)
     } catch (error) {
       console.error('获取分类失败:', error)
+      message.error('获取分类失败')
     } finally {
       setLoading(false)
     }
@@ -61,65 +92,69 @@ export default function CategoriesPage() {
       .replace(/^-+|-+$/g, '')
   }
 
-  const handleNameChange = (value: string) => {
-    setFormData({ ...formData, name: value, slug: generateSlug(value) })
+  const handleAdd = () => {
+    setEditingId(null)
+    form.resetFields()
+    setModalVisible(true)
   }
 
   const handleEdit = (category: Category) => {
     setEditingId(category.id)
-    setFormData({
+    form.setFieldsValue({
       name: category.name,
       slug: category.slug,
       description: category.description || '',
       parent_id: category.parent_id,
     })
-    setShowForm(true)
+    setModalVisible(true)
   }
 
   const handleCancel = () => {
-    setShowForm(false)
+    setModalVisible(false)
     setEditingId(null)
-    setFormData({ name: '', slug: '', description: '', parent_id: null })
+    form.resetFields()
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     try {
+      const values = await form.validateFields()
+      const submitData = {
+        ...values,
+        description: values.description || null,
+        parent_id: values.parent_id || null,
+      }
+
       if (editingId) {
-        await apiPut(`/api/v1/categories/${editingId}`, {
-          ...formData,
-          description: formData.description || null,
-          parent_id: formData.parent_id || null,
-        })
+        await apiPut(`/api/v1/categories/${editingId}`, submitData)
+        message.success('更新成功')
       } else {
-        await apiPost('/api/v1/categories/', {
-          ...formData,
-          description: formData.description || null,
-          parent_id: formData.parent_id || null,
-        })
+        await apiPost('/api/v1/categories/', submitData)
+        message.success('创建成功')
       }
       handleCancel()
-      // 如果当前页没有数据了，回到上一页
-      if (page > 1 && categories.length === 1) {
-        setPage(page - 1)
-      } else {
-        fetchCategories()
-      }
+      // 强制刷新数据，绕过缓存
+      setTimeout(() => {
+        fetchCategories(true)
+      }, 100) // 稍微延迟以确保后端缓存清除完成
     } catch (error: any) {
-      alert(error.message || '操作失败')
+      if (error.errorFields) {
+        // 表单验证错误
+        return
+      }
+      message.error(error.message || '操作失败')
     }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个分类吗？')) {
-      return
-    }
-
     try {
       await apiDelete(`/api/v1/categories/${id}`)
-      fetchCategories()
+      message.success('删除成功')
+      // 强制刷新数据，绕过缓存
+      setTimeout(() => {
+        fetchCategories(true)
+      }, 100) // 稍微延迟以确保后端缓存清除完成
     } catch (error: any) {
-      alert(error.message || '删除失败')
+      message.error(error.message || '删除失败')
     }
   }
 
@@ -129,198 +164,145 @@ export default function CategoriesPage() {
     return category?.name || '-'
   }
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center">加载中...</div>
-      </div>
-    )
-  }
+  const columns: ColumnsType<Category> = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Slug',
+      dataIndex: 'slug',
+      key: 'slug',
+    },
+    {
+      title: '父分类',
+      dataIndex: 'parent_id',
+      key: 'parent_id',
+      render: (parentId: number | null) => getCategoryName(parentId),
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      render: (desc: string | null) => desc || '-',
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 150,
+      render: (_: any, record: Category) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定要删除这个分类吗？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">分类管理</h1>
-        <button
-          onClick={() => {
-            setShowForm(true)
-            setEditingId(null)
-            setFormData({ name: '', slug: '', description: '', parent_id: null })
-          }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={2} style={{ margin: 0 }}>
+          分类管理
+        </Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新建分类
-        </button>
+        </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingId ? '编辑分类' : '新建分类'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                名称 *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Slug *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                描述
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                父分类
-              </label>
-              <select
-                value={formData.parent_id || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    parent_id: e.target.value ? parseInt(e.target.value) : null,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">无父分类</option>
-                {categories
-                  .filter((c) => !editingId || c.id !== editingId)
-                  .map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                保存
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                取消
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <Table
+        columns={columns}
+        dataSource={categories}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: page,
+          pageSize: pageSize,
+          total: total,
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 条`,
+          onChange: (page, pageSize) => {
+            setPage(page)
+            setPageSize(pageSize)
+          },
+        }}
+        style={{
+          background: '#fff',
+          borderRadius: 8,
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
+        }}
+        size="middle"
+      />
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                名称
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Slug
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                父分类
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                描述
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {categories.map((category) => (
-              <tr key={category.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {category.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.slug}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {getCategoryName(category.parent_id)}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500">
-                  {category.description || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleEdit(category)}
-                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                  >
-                    编辑
-                  </button>
-                  <button
-                    onClick={() => handleDelete(category.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {categories.length === 0 && !loading && (
-        <div className="text-center py-12 text-gray-500">暂无分类</div>
-      )}
-
-      {/* 分页组件 */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            共 {total} 条，第 {page} / {totalPages} 页
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      <Modal
+        title={editingId ? '编辑分类' : '新建分类'}
+        open={modalVisible}
+        onOk={handleSubmit}
+        onCancel={handleCancel}
+        okText="保存"
+        cancelText="取消"
+        width={600}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(changedValues) => {
+            if (changedValues.name && !form.getFieldValue('slug')) {
+              form.setFieldsValue({ slug: generateSlug(changedValues.name) })
+            }
+          }}
+        >
+          <Form.Item
+            label="名称"
+            name="name"
+            rules={[{ required: true, message: '请输入分类名称' }]}
+          >
+            <Input placeholder="请输入分类名称" />
+          </Form.Item>
+          <Form.Item
+            label="Slug"
+            name="slug"
+            rules={[{ required: true, message: '请输入Slug' }]}
+          >
+            <Input placeholder="分类的URL友好标识" />
+          </Form.Item>
+          <Form.Item label="描述" name="description">
+            <TextArea rows={3} placeholder="分类描述（可选）" />
+          </Form.Item>
+          <Form.Item label="父分类" name="parent_id">
+            <Select
+              placeholder="选择父分类（可选）"
+              allowClear
+              disabled={!!editingId}
             >
-              上一页
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
-      )}
+              {categories
+                .filter((c) => !editingId || c.id !== editingId)
+                .map((cat) => (
+                  <Select.Option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </Select.Option>
+                ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

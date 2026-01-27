@@ -1,8 +1,16 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.core.database import Base
+
+# 多对多关系表
+post_categories = Table(
+    "post_categories",
+    Base.metadata,
+    Column("post_id", Integer, ForeignKey("posts.id"), primary_key=True),
+    Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True),
+)
 
 
 class Category(Base):
@@ -18,4 +26,4 @@ class Category(Base):
 
     # Relationships
     parent = relationship("Category", remote_side=[id], backref="children")
-    posts = relationship("Post", back_populates="category")
+    posts = relationship("Post", secondary=post_categories, back_populates="categories")

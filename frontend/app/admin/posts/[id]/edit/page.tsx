@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { apiGet, apiPut } from '@/lib/api'
-import FileUpload from '@/components/FileUpload'
 import AIPolish from '@/components/AIPolish'
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false })
@@ -37,7 +36,7 @@ interface Post {
   excerpt: string | null
   cover_image: string | null
   status: string
-  category_id: number | null
+  categories: Array<{ id: number }>
   tags: Array<{ id: number }>
 }
 
@@ -52,7 +51,7 @@ export default function EditPostPage() {
   const [excerpt, setExcerpt] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [status, setStatus] = useState('DRAFT')
-  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [categoryIds, setCategoryIds] = useState<number[]>([])
   const [tagIds, setTagIds] = useState<number[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -87,7 +86,7 @@ export default function EditPostPage() {
     setExcerpt(post.excerpt || '')
     setCoverImage(post.cover_image || '')
     setStatus(post.status)
-    setCategoryId(post.category?.id || null)
+    setCategoryIds(post.categories?.map((c: any) => c.id) || [])
     setTagIds(post.tags?.map((t: any) => t.id) || [])
   }
 
@@ -111,6 +110,12 @@ export default function EditPostPage() {
     }
   }
 
+  const handleCategoryToggle = (catId: number) => {
+    setCategoryIds((prev) =>
+      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    )
+  }
+
   const handleTagToggle = (tagId: number) => {
     setTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
@@ -129,7 +134,7 @@ export default function EditPostPage() {
         excerpt: excerpt || null,
         cover_image: coverImage || null,
         status,
-        category_id: categoryId,
+        category_ids: categoryIds,
         tag_ids: tagIds,
       })
 
@@ -184,23 +189,18 @@ export default function EditPostPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            封面图
+            封面图 URL
           </label>
-          <FileUpload
-            fileType="cover"
-            onUploadComplete={(url) => setCoverImage(url)}
-            label=""
+          <input
+            type="text"
+            value={coverImage}
+            onChange={(e) => setCoverImage(e.target.value)}
+            placeholder="请输入封面图片 URL"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
           {coverImage && (
             <div className="mt-2">
-              <img src={coverImage} alt="封面预览" className="max-w-xs h-32 object-cover rounded" />
-              <input
-                type="text"
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="或直接输入图片 URL"
-                className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
+              <img src={coverImage} alt="封面预览" className="max-w-xs h-32 object-cover rounded shadow-sm" />
             </div>
           )}
         </div>
@@ -233,25 +233,7 @@ export default function EditPostPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              分类
-            </label>
-            <select
-              value={categoryId || ''}
-              onChange={(e) => setCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">无分类</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               状态
@@ -264,6 +246,28 @@ export default function EditPostPage() {
               <option value="DRAFT">草稿</option>
               <option value="PUBLISHED">已发布</option>
             </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            分类
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleCategoryToggle(cat.id)}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  categoryIds.includes(cat.id)
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
         </div>
 

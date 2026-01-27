@@ -28,7 +28,7 @@ def slugify(text: str) -> str:
 @router.get("/", response_model=PaginatedResponse[TagResponse])
 async def get_tags(
     page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
+    size: int = Query(10, ge=1, le=1000),
     db: AsyncSession = Depends(get_db)
 ):
     """获取标签列表（分页）"""
@@ -92,8 +92,8 @@ async def create_tag(
     await db.commit()
     await db.refresh(new_tag)
     
-    # 清除缓存
-    await delete_cache_pattern("tag:list")
+    # 清除缓存（必须在返回前完成）
+    await delete_cache_pattern("tag:list*")
     await delete_cache_pattern("post:list:*")
     
     return new_tag
@@ -118,6 +118,6 @@ async def delete_tag(
     await db.delete(tag)
     await db.commit()
     
-    # 清除缓存
-    await delete_cache_pattern("tag:list")
+    # 清除缓存（必须在返回前完成）
+    await delete_cache_pattern("tag:list*")
     await delete_cache_pattern("post:list:*")

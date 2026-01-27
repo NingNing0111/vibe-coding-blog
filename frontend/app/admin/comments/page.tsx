@@ -2,6 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { apiGet, apiDelete } from '@/lib/api'
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Popconfirm,
+  message,
+  Avatar,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import { DeleteOutlined, UserOutlined } from '@ant-design/icons'
+
+const { Title } = Typography
 
 interface Comment {
   id: number
@@ -32,134 +45,128 @@ export default function CommentsPage() {
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
     fetchComments()
-  }, [page])
+  }, [page, pageSize])
 
   const fetchComments = async () => {
     try {
       setLoading(true)
-      const data = await apiGet<PaginatedResponse<Comment>>(`/api/v1/comments/?page=${page}&size=10`, true)
+      const data = await apiGet<PaginatedResponse<Comment>>(`/api/v1/comments/?page=${page}&size=${pageSize}`, true)
       setComments(data.items)
-      setTotalPages(data.pages)
       setTotal(data.total)
     } catch (error) {
       console.error('获取评论失败:', error)
+      message.error('获取评论失败')
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这条评论吗？')) {
-      return
-    }
-
     try {
       await apiDelete(`/api/v1/comments/${id}`)
-      fetchComments() // 重新获取评论列表
+      message.success('删除成功')
+      fetchComments()
     } catch (error: any) {
-      alert(error.message || '删除失败')
+      message.error(error.message || '删除失败')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center">加载中...</div>
-      </div>
-    )
-  }
+  const columns: ColumnsType<Comment> = [
+    {
+      title: '评论内容',
+      dataIndex: 'content',
+      key: 'content',
+      width: 400,
+      render: (text: string) => (
+        <div style={{ maxWidth: 400, wordBreak: 'break-word' }}>{text}</div>
+      ),
+    },
+    {
+      title: '用户',
+      key: 'user',
+      width: 150,
+      render: (_: any, record: Comment) => (
+        <Space>
+          <Avatar
+            src={record.user.avatar || undefined}
+            icon={!record.user.avatar && <UserOutlined />}
+          />
+          <span>{record.user.username}</span>
+        </Space>
+      ),
+    },
+    {
+      title: '文章',
+      key: 'post',
+      width: 200,
+      render: (_: any, record: Comment) => (
+        <div style={{ maxWidth: 200, wordBreak: 'break-word' }}>
+          {record.post?.title || `文章 ID: ${record.post_id}`}
+        </div>
+      ),
+    },
+    {
+      title: '时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (date: string) => new Date(date).toLocaleString('zh-CN'),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: any, record: Comment) => (
+        <Popconfirm
+          title="确定要删除这条评论吗？"
+          onConfirm={() => handleDelete(record.id)}
+          okText="确定"
+          cancelText="取消"
+        >
+          <Button type="link" danger icon={<DeleteOutlined />}>
+            删除
+          </Button>
+        </Popconfirm>
+      ),
+    },
+  ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">评论管理</h1>
+    <div>
+      <Title level={2} style={{ marginBottom: 16 }}>
+        评论管理
+      </Title>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                评论内容
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                用户
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                文章
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                时间
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {comments.map((comment) => (
-              <tr key={comment.id}>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900 max-w-md">{comment.content}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {comment.user.username}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {comment.post?.title || `文章 ID: ${comment.post_id}`}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(comment.created_at).toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleDelete(comment.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {comments.length === 0 && !loading && (
-        <div className="text-center py-12 text-gray-500">暂无评论</div>
-      )}
-
-      {/* 分页组件 */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            共 {total} 条，第 {page} / {totalPages} 页
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              上一页
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
-      )}
+      <Table
+        columns={columns}
+        dataSource={comments}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: page,
+          pageSize: pageSize,
+          total: total,
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 条`,
+          onChange: (page, pageSize) => {
+            setPage(page)
+            setPageSize(pageSize)
+          },
+        }}
+        scroll={{ x: 1000 }}
+        style={{
+          background: '#fff',
+          borderRadius: 8,
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
+        }}
+        size="middle"
+      />
     </div>
   )
 }

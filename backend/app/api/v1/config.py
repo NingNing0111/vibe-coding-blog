@@ -9,7 +9,8 @@ from app.api.dependencies import get_current_admin
 from app.schemas.config import (
     ConfigCreate, ConfigUpdate, ConfigResponse, 
     ConfigBatchUpdate, AllConfigs, SiteBasicConfig, 
-    BloggerConfig, OSSConfig, EmailConfig, LLMConfig, PublicConfigs
+    BloggerConfig, OSSConfig, EmailConfig, LLMConfig, PromptConfig, PublicConfigs,
+    FriendlyLinksConfig
 )
 from app.models.config import Config
 from app.models.user import User
@@ -170,6 +171,16 @@ def _build_blogger(configs: Dict[str, Any]) -> BloggerConfig:
     )
 
 
+def _build_friendly_links(configs: Dict[str, Any]) -> FriendlyLinksConfig:
+    links = []
+    try:
+        if configs.get("friendly_links"):
+            links = json.loads(configs["friendly_links"])
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return FriendlyLinksConfig(links=links)
+
+
 def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
     oss = OSSConfig(
         oss_type=configs.get("oss_type", ""),
@@ -194,12 +205,18 @@ def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
         llm_model=configs.get("llm_model", "gpt-3.5-turbo"),
     )
 
+    prompt = PromptConfig(
+        polish_system_prompt=configs.get("polish_system_prompt", "你是一个专业的文案编辑助手。"),
+    )
+
     return AllConfigs(
         site_basic=_build_site_basic(configs),
         blogger=_build_blogger(configs),
         oss=oss,
         email=email,
         llm=llm,
+        prompt=prompt,
+        friendly_links=_build_friendly_links(configs),
     )
 
 
@@ -207,6 +224,7 @@ def _build_public_configs(configs: Dict[str, Any]) -> PublicConfigs:
     return PublicConfigs(
         site_basic=_build_site_basic(configs),
         blogger=_build_blogger(configs),
+        friendly_links=_build_friendly_links(configs),
     )
 
 
@@ -271,6 +289,12 @@ async def update_structured_configs(
     configs_dict["llm_api_key"] = configs_data.llm.llm_api_key
     configs_dict["llm_base_url"] = configs_data.llm.llm_base_url
     configs_dict["llm_model"] = configs_data.llm.llm_model
+    
+    # 提示词配置
+    configs_dict["polish_system_prompt"] = configs_data.prompt.polish_system_prompt
+    
+    # 友链配置
+    configs_dict["friendly_links"] = json.dumps([link.model_dump() for link in configs_data.friendly_links.links], ensure_ascii=False)
     
     # 批量更新配置
     for key, value in configs_dict.items():

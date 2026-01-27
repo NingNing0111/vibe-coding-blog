@@ -23,11 +23,11 @@ interface Post {
     username: string
     avatar: string | null
   }
-  category: {
+  categories: Array<{
     id: number
     name: string
     slug: string
-  } | null
+  }>
   tags: Array<{
     id: number
     name: string
@@ -70,11 +70,15 @@ export default async function PostPage({ params }: { params: { slug: string } })
           )}
           
           <div className="p-8 sm:p-10">
-            {/* Category */}
-            {post.category && (
-              <span className="inline-block px-4 py-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 text-indigo-700 dark:text-indigo-300 text-sm font-semibold rounded-full mb-6 border border-indigo-100 dark:border-indigo-800">
-                {post.category.name}
-              </span>
+            {/* Categories */}
+            {post.categories && post.categories.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {post.categories.map((cat) => (
+                  <span key={cat.id} className="inline-block px-4 py-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 text-indigo-700 dark:text-indigo-300 text-sm font-semibold rounded-full border border-indigo-100 dark:border-indigo-800">
+                    {cat.name}
+                  </span>
+                ))}
+              </div>
             )}
 
             {/* Title */}

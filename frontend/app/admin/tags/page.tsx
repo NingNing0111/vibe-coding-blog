@@ -2,6 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { apiGet, apiPost, apiDelete } from '@/lib/api'
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Popconfirm,
+  message,
+  Modal,
+  Form,
+  Input,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+
+const { Title } = Typography
 
 interface Tag {
   id: number
@@ -21,24 +36,29 @@ export default function TagsPage() {
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ name: '', slug: '' })
+  const [modalVisible, setModalVisible] = useState(false)
+  const [form] = Form.useForm()
 
   useEffect(() => {
     fetchTags()
-  }, [page])
+  }, [page, pageSize])
 
-  const fetchTags = async () => {
+  const fetchTags = async (forceRefresh = false) => {
     try {
       setLoading(true)
-      const data = await apiGet<PaginatedResponse<Tag>>(`/api/v1/tags/?page=${page}&size=10`)
+      // 添加时间戳参数以绕过缓存（如果需要强制刷新）
+      const timestamp = forceRefresh ? `&_t=${Date.now()}` : ''
+      const data = await apiGet<PaginatedResponse<Tag>>(
+        `/api/v1/tags/?page=${page}&size=${pageSize}${timestamp}`,
+        false // 不使用请求去重，确保获取最新数据
+      )
       setTags(data.items)
-      setTotalPages(data.pages)
       setTotal(data.total)
     } catch (error) {
       console.error('获取标签失败:', error)
+      message.error('获取标签失败')
     } finally {
       setLoading(false)
     }
@@ -53,182 +73,146 @@ export default function TagsPage() {
       .replace(/^-+|-+$/g, '')
   }
 
-  const handleNameChange = (value: string) => {
-    setFormData({ name: value, slug: generateSlug(value) })
+  const handleAdd = () => {
+    form.resetFields()
+    setModalVisible(true)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     try {
-      await apiPost('/api/v1/tags/', formData)
-      setFormData({ name: '', slug: '' })
-      setShowForm(false)
-      // 跳转到最后一页查看新创建的标签
-      fetchTags().then(() => {
-        // 这里可以优化：获取总数后跳转到最后一页
-      })
+      const values = await form.validateFields()
+      await apiPost('/api/v1/tags/', values)
+      message.success('创建成功')
+      setModalVisible(false)
+      form.resetFields()
+      // 强制刷新数据，绕过缓存
+      setTimeout(() => {
+        fetchTags(true)
+      }, 100) // 稍微延迟以确保后端缓存清除完成
     } catch (error: any) {
-      alert(error.message || '创建标签失败')
+      if (error.errorFields) {
+        // 表单验证错误
+        return
+      }
+      message.error(error.message || '创建标签失败')
     }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个标签吗？')) {
-      return
-    }
-
     try {
       await apiDelete(`/api/v1/tags/${id}`)
-      // 如果当前页没有数据了，回到上一页
-      if (page > 1 && tags.length === 1) {
-        setPage(page - 1)
-      } else {
-        fetchTags()
-      }
+      message.success('删除成功')
+      // 强制刷新数据，绕过缓存
+      setTimeout(() => {
+        fetchTags(true)
+      }, 100) // 稍微延迟以确保后端缓存清除完成
     } catch (error: any) {
-      alert(error.message || '删除失败')
+      message.error(error.message || '删除失败')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center">加载中...</div>
-      </div>
-    )
-  }
+  const columns: ColumnsType<Tag> = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Slug',
+      dataIndex: 'slug',
+      key: 'slug',
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: any, record: Tag) => (
+        <Popconfirm
+          title="确定要删除这个标签吗？"
+          onConfirm={() => handleDelete(record.id)}
+          okText="确定"
+          cancelText="取消"
+        >
+          <Button type="link" danger icon={<DeleteOutlined />}>
+            删除
+          </Button>
+        </Popconfirm>
+      ),
+    },
+  ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">标签管理</h1>
-        <button
-          onClick={() => {
-            setShowForm(true)
-            setFormData({ name: '', slug: '' })
-          }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={2} style={{ margin: 0 }}>
+          标签管理
+        </Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新建标签
-        </button>
+        </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">新建标签</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                名称 *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Slug *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                保存
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false)
-                  setFormData({ name: '', slug: '' })
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                取消
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <Table
+        columns={columns}
+        dataSource={tags}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: page,
+          pageSize: pageSize,
+          total: total,
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 条`,
+          onChange: (page, pageSize) => {
+            setPage(page)
+            setPageSize(pageSize)
+          },
+        }}
+        style={{
+          background: '#fff',
+          borderRadius: 8,
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
+        }}
+        size="middle"
+      />
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                名称
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Slug
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {tags.map((tag) => (
-              <tr key={tag.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {tag.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {tag.slug}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleDelete(tag.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {tags.length === 0 && !loading && (
-        <div className="text-center py-12 text-gray-500">暂无标签</div>
-      )}
-
-      {/* 分页组件 */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            共 {total} 条，第 {page} / {totalPages} 页
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              上一页
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
-      )}
+      <Modal
+        title="新建标签"
+        open={modalVisible}
+        onOk={handleSubmit}
+        onCancel={() => {
+          setModalVisible(false)
+          form.resetFields()
+        }}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(changedValues) => {
+            if (changedValues.name && !form.getFieldValue('slug')) {
+              form.setFieldsValue({ slug: generateSlug(changedValues.name) })
+            }
+          }}
+        >
+          <Form.Item
+            label="名称"
+            name="name"
+            rules={[{ required: true, message: '请输入标签名称' }]}
+          >
+            <Input placeholder="请输入标签名称" />
+          </Form.Item>
+          <Form.Item
+            label="Slug"
+            name="slug"
+            rules={[{ required: true, message: '请输入Slug' }]}
+          >
+            <Input placeholder="标签的URL友好标识" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

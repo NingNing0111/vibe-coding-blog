@@ -6,6 +6,7 @@ import { Layout, Menu, Button, Space, Drawer } from 'antd'
 import { CodeOutlined, MenuOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons'
 import { removeTokenCookie, removeRefreshTokenCookie } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useConfig } from '@/contexts/ConfigContext'
 
 const { Header: AntHeader } = Layout
 
@@ -14,6 +15,7 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const themeContext = useTheme()
+  const { config } = useConfig()
   const { theme, toggleTheme } = mounted ? themeContext : { 
     theme: 'light' as const, 
     toggleTheme: () => {}
@@ -118,8 +120,18 @@ export default function Header() {
               color: 'inherit',
             }}
           >
-            <CodeOutlined style={{ fontSize: '24px', color: '#1677ff' }} />
-            <span className="hidden sm:inline text-slate-900 dark:text-gray-100">Tech Blog</span>
+            {config?.site_basic?.site_logo ? (
+              <img 
+                src={config.site_basic.site_logo} 
+                alt="Logo" 
+                style={{ width: '32px', height: '32px', objectFit: 'contain' }} 
+              />
+            ) : (
+              <CodeOutlined style={{ fontSize: '24px', color: '#1677ff' }} />
+            )}
+            <span className="hidden sm:inline text-slate-900 dark:text-gray-100">
+              {config?.site_basic?.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || 'Tech Blog'}
+            </span>
           </Link>
         </div>
 

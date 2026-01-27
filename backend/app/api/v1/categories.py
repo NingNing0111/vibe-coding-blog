@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[CategoryResponse])
 async def get_categories(
     page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
+    size: int = Query(10, ge=1, le=1000),
     db: AsyncSession = Depends(get_db)
 ):
     """获取分类列表（分页）"""
@@ -27,17 +27,20 @@ async def get_categories(
     cache_key = f"category:list:page:{page}:size:{size}"
     cached = await get_cache(cache_key)
     if cached:
-        return json.loads(cached)
-    
-    # 构建查询
-    query = select(Category).order_by(Category.name)
+        cached_data = json.loads(cached)
+        # 如果缓存的数据为空，清除缓存并重新查询
+        if cached_data.get("total", 0) == 0 and cached_data.get("items", []) == []:
+            await delete_cache_pattern("category:list")
+        else:
+            return cached_data
     
     # 计算总数
     count_query = select(func.count(Category.id))
-    total = await db.scalar(count_query) or 0
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
     
     # 分页查询
-    query = query.offset((page - 1) * size).limit(size)
+    query = select(Category).order_by(Category.name).offset((page - 1) * size).limit(size)
     result = await db.execute(query)
     categories = result.scalars().all()
     
@@ -53,8 +56,9 @@ async def get_categories(
         "pages": pages
     }
     
-    # 缓存结果
-    await set_cache(cache_key, json.dumps(response_data, default=str), ttl=600)
+    # 缓存结果（只缓存有数据的结果）
+    if total > 0:
+        await set_cache(cache_key, json.dumps(response_data, default=str), ttl=600)
     
     return response_data
 
@@ -103,8 +107,8 @@ async def create_category(
     await db.commit()
     await db.refresh(new_category)
     
-    # 清除缓存
-    await delete_cache_pattern("category:list")
+    # 清除缓存（必须在返回前完成）
+    await delete_cache_pattern("category:list*")
     await delete_cache_pattern("post:list:*")
     
     return new_category
@@ -152,8 +156,8 @@ async def update_category(
     await db.commit()
     await db.refresh(category)
     
-    # 清除缓存
-    await delete_cache_pattern("category:list")
+    # 清除缓存（必须在返回前完成）
+    await delete_cache_pattern("category:list*")
     await delete_cache_pattern("post:list:*")
     
     return category
@@ -186,6 +190,6 @@ async def delete_category(
     await db.delete(category)
     await db.commit()
     
-    # 清除缓存
-    await delete_cache_pattern("category:list")
+    # 清除缓存（必须在返回前完成）
+    await delete_cache_pattern("category:list*")
     await delete_cache_pattern("post:list:*")

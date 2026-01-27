@@ -24,13 +24,12 @@ class Post(Base):
     view_count = Column(SQLInteger, default=0, nullable=False)
     comment_count = Column(SQLInteger, default=0, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     published_at = Column(DateTime, nullable=True)
 
     # Relationships
     author = relationship("User", back_populates="posts")
-    category = relationship("Category", back_populates="posts")
+    categories = relationship("Category", secondary="post_categories", back_populates="posts")
     tags = relationship("Tag", secondary="post_tags", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")

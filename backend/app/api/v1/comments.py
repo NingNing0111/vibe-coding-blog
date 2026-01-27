@@ -19,21 +19,26 @@ router = APIRouter()
 
 
 def build_comment_tree(comments: List[Comment]) -> List[CommentResponse]:
-    """构建评论树结构"""
-    comment_dict = {c.id: CommentResponse.model_validate(c) for c in comments}
-    root_comments = []
-    
-    for comment in comments:
-        comment_response = comment_dict[comment.id]
-        if comment.parent_id:
-            parent = comment_dict.get(comment.parent_id)
-            if parent:
-                if not hasattr(parent, 'replies') or parent.replies is None:
-                    parent.replies = []
-                parent.replies.append(comment_response)
+    """构建评论树结构。从 ORM 手动构造 CommentResponse，避免访问 c.replies 触发异步下的懒加载（MissingGreenlet）。"""
+    comment_dict: dict[int, CommentResponse] = {}
+    for c in comments:
+        comment_dict[c.id] = CommentResponse(
+            id=c.id,
+            content=c.content,
+            post_id=c.post_id,
+            user=UserInfo.model_validate(c.user),
+            parent_id=c.parent_id,
+            replies=[],
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+        )
+    root_comments: List[CommentResponse] = []
+    for c in comments:
+        resp = comment_dict[c.id]
+        if c.parent_id and c.parent_id in comment_dict:
+            comment_dict[c.parent_id].replies.append(resp)
         else:
-            root_comments.append(comment_response)
-    
+            root_comments.append(resp)
     return root_comments
 
 

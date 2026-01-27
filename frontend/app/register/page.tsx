@@ -37,7 +37,7 @@ export default function RegisterPage() {
       }
 
       setCodeSent(true)
-      message.success(`验证码已发送（开发环境）：${data.code || '请查看控制台'}`)
+      message.success(`验证码已发送`)
 
       // 开始倒计时
       setCountdown(60)

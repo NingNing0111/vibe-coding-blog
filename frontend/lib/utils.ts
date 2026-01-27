@@ -27,3 +27,16 @@ export function setRefreshTokenCookie(token: string) {
 export function removeRefreshTokenCookie() {
   Cookies.remove('refresh_token')
 }
+
+// 用户角色 Cookie（用于前端路由/权限展示，仅管理员可进后台）
+export function setUserRoleCookie(role: string) {
+  Cookies.set('user_role', role, { expires: 7, sameSite: 'lax' })
+}
+
+export function getUserRoleCookie(): string | undefined {
+  return Cookies.get('user_role')
+}
+
+export function removeUserRoleCookie() {
+  Cookies.remove('user_role')
+}

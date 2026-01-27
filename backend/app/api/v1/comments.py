@@ -8,7 +8,7 @@ import math
 from app.core.database import get_db
 from app.core.config_loader import get_email_config
 from app.api.dependencies import get_current_user, get_current_admin
-from app.schemas.comment import CommentCreate, CommentResponse, CommentListResponse
+from app.schemas.comment import CommentCreate, CommentResponse, CommentListResponse, UserInfo
 from app.schemas.pagination import PaginatedResponse
 from app.models.comment import Comment
 from app.models.post import Post
@@ -105,6 +105,18 @@ async def create_comment(
     
     await db.commit()
     await db.refresh(new_comment)
+
+    # 手动构建响应，避免触发 ORM 的 replies 懒加载（异步下会报 MissingGreenlet）
+    response = CommentResponse(
+        id=new_comment.id,
+        content=new_comment.content,
+        post_id=new_comment.post_id,
+        user=UserInfo.model_validate(current_user),
+        parent_id=new_comment.parent_id,
+        replies=[],
+        created_at=new_comment.created_at,
+        updated_at=new_comment.updated_at,
+    )
     
     # 从数据库读取邮箱配置并发送通知
     email_config = await get_email_config(db)
@@ -136,7 +148,7 @@ async def create_comment(
                 smtp_config=email_config,
             )
     
-    return new_comment
+    return response
 
 
 @router.get("/", response_model=PaginatedResponse[CommentListResponse])

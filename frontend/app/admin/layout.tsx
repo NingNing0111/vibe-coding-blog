@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { apiGet } from '@/lib/api'
-import { removeTokenCookie, removeRefreshTokenCookie } from '@/lib/utils'
+import { removeTokenCookie, removeRefreshTokenCookie, removeUserRoleCookie } from '@/lib/utils'
 import { useConfig } from '@/contexts/ConfigContext'
 import {
   Layout,
@@ -88,10 +88,24 @@ export default function AdminLayout({
     // 防止重复请求用户信息
     if (!hasFetchedUser.current) {
       hasFetchedUser.current = true
-      apiGet('/api/v1/auth/me', true)
-        .then(setUser)
+      apiGet<{ role: string; username?: string; avatar?: string }>('/api/v1/auth/me', true)
+        .then((u) => {
+          if (u.role !== 'ADMIN') {
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            removeTokenCookie()
+            removeRefreshTokenCookie()
+            removeUserRoleCookie()
+            router.replace('/')
+            return
+          }
+          setUser(u)
+        })
         .catch(() => {
           localStorage.removeItem('access_token')
+          removeTokenCookie()
+          removeRefreshTokenCookie()
+          removeUserRoleCookie()
           router.push('/login')
         })
     }
@@ -103,6 +117,7 @@ export default function AdminLayout({
     localStorage.removeItem('refresh_token')
     removeTokenCookie()
     removeRefreshTokenCookie()
+    removeUserRoleCookie()
     router.push('/')
   }
 

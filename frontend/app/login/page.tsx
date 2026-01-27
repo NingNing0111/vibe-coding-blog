@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Layout, Form, Input, Button, Alert, Space, FloatButton, Dropdown, Typography } from 'antd'
 import { SunOutlined, MoonOutlined, FontSizeOutlined } from '@ant-design/icons'
-import { apiPost } from '@/lib/api'
-import { setTokenCookie, setRefreshTokenCookie } from '@/lib/utils'
+import { apiPost, apiGet } from '@/lib/api'
+import { setTokenCookie, setRefreshTokenCookie, setUserRoleCookie } from '@/lib/utils'
 import { useTheme, type FontFamily } from '@/contexts/ThemeContext'
 import type { MenuProps } from 'antd'
 
@@ -49,13 +49,20 @@ export default function LoginPage() {
         password: values.password,
       })
 
-      // 存储令牌到localStorage和cookie
+      // 存储令牌到 localStorage 和 cookie
       localStorage.setItem('access_token', response.access_token)
       localStorage.setItem('refresh_token', response.refresh_token)
       setTokenCookie(response.access_token)
       setRefreshTokenCookie(response.refresh_token)
 
-      router.push('/admin')
+      // 拉取当前用户信息，按角色决定跳转并写入角色 cookie（仅管理员可进后台）
+      const me = await apiGet<{ role: string }>('/api/v1/auth/me')
+      setUserRoleCookie(me.role)
+      if (me.role === 'ADMIN') {
+        router.push('/admin')
+      } else {
+        router.push('/')
+      }
     } catch (err: any) {
       setError(err.message || '登录失败')
     } finally {

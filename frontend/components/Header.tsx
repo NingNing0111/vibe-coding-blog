@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Layout, Menu, Button, Space, Drawer } from 'antd'
 import { CodeOutlined, MenuOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons'
-import { removeTokenCookie, removeRefreshTokenCookie } from '@/lib/utils'
+import { removeTokenCookie, removeRefreshTokenCookie, removeUserRoleCookie, getUserRoleCookie } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useConfig } from '@/contexts/ConfigContext'
 
@@ -12,19 +12,21 @@ const { Header: AntHeader } = Layout
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const themeContext = useTheme()
   const { config } = useConfig()
-  const { theme, toggleTheme } = mounted ? themeContext : { 
-    theme: 'light' as const, 
-    toggleTheme: () => {}
+  const { theme, toggleTheme } = mounted ? themeContext : {
+    theme: 'light' as const,
+    toggleTheme: () => {},
   }
 
   useEffect(() => {
     setMounted(true)
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
     setIsLoggedIn(!!token)
+    setIsAdmin(getUserRoleCookie() === 'ADMIN')
   }, [])
 
   const handleLogout = () => {
@@ -32,7 +34,9 @@ export default function Header() {
     localStorage.removeItem('refresh_token')
     removeTokenCookie()
     removeRefreshTokenCookie()
+    removeUserRoleCookie()
     setIsLoggedIn(false)
+    setIsAdmin(false)
     setIsMobileMenuOpen(false)
     window.location.href = '/'
   }
@@ -44,10 +48,7 @@ export default function Header() {
     },
     ...(isLoggedIn
       ? [
-          {
-            key: 'admin',
-            label: <Link href="/admin">管理</Link>,
-          },
+          ...(isAdmin ? [{ key: 'admin', label: <Link href="/admin">管理</Link> }] : []),
           {
             key: 'logout',
             label: (
@@ -72,10 +73,7 @@ export default function Header() {
     },
     ...(isLoggedIn
       ? [
-          {
-            key: 'admin',
-            label: <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)}>管理</Link>,
-          },
+          ...(isAdmin ? [{ key: 'admin', label: <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)}>管理</Link> }] : []),
           {
             key: 'logout',
             label: (

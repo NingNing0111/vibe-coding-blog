@@ -14,12 +14,12 @@ export function getDeduplicatedRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const requestKey = `${options.method || 'GET'}:${endpoint}:${JSON.stringify(options.body || '')}`
-  
+
   // 如果已有相同的请求正在进行，直接返回该 Promise
   if (pendingRequests.has(requestKey)) {
     return pendingRequests.get(requestKey)!
   }
-  
+
   // 创建新请求
   const requestPromise = apiRequest<T>(endpoint, options)
     .finally(() => {
@@ -28,7 +28,7 @@ export function getDeduplicatedRequest<T>(
         pendingRequests.delete(requestKey)
       }, 100)
     })
-  
+
   pendingRequests.set(requestKey, requestPromise)
   return requestPromise
 }
@@ -38,26 +38,26 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
   })
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: '请求失败' }))
     throw new Error(error.detail || '请求失败')
   }
-  
+
   return response.json()
 }
 

@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    const res = await fetch(`${apiUrl}/api/v1/config/structured/all`, { 
+    const res = await fetch(`${apiUrl}/api/v1/config/structured/all`, {
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(2000) // 2秒超时，防止阻塞
     })

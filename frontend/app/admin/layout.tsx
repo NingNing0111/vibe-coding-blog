@@ -109,7 +109,7 @@ export default function AdminLayout({
   // 生成面包屑
   const breadcrumbItems = useMemo(() => {
     if (!pathname) return []
-    
+
     const paths = pathname.split('/').filter(Boolean)
     const items: Array<{ title: string; href?: string }> = []
 
@@ -235,8 +235,8 @@ export default function AdminLayout({
           zIndex: 100,
         }}
       >
-        <div style={{ 
-          padding: '16px', 
+        <div style={{
+          padding: '16px',
           borderBottom: '1px solid #f0f0f0',
           display: 'flex',
           alignItems: 'center',
@@ -245,26 +245,26 @@ export default function AdminLayout({
           gap: '12px'
         }}>
           {config?.site_basic?.site_logo ? (
-            <img 
-              src={config.site_basic.site_logo} 
-              alt="Logo" 
-              style={{ 
-                width: collapsed ? '32px' : '32px', 
-                height: collapsed ? '32px' : '32px', 
+            <img
+              src={config.site_basic.site_logo}
+              alt="Logo"
+              style={{
+                width: collapsed ? '32px' : '32px',
+                height: collapsed ? '32px' : '32px',
                 objectFit: 'contain',
                 flexShrink: 0
-              }} 
+              }}
             />
           ) : (
-            <CodeOutlined style={{ 
-              fontSize: collapsed ? '24px' : '24px', 
+            <CodeOutlined style={{
+              fontSize: collapsed ? '24px' : '24px',
               color: '#1890ff',
               flexShrink: 0
             }} />
           )}
           {!collapsed && (
             <Text strong style={{ fontSize: '18px', color: '#1890ff', whiteSpace: 'nowrap' }}>
-              {config?.site_basic?.site_title || 'Blog Admin'}
+              博客管理
             </Text>
           )}
         </div>
@@ -323,9 +323,9 @@ export default function AdminLayout({
           <Space size={16}>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
               <Space style={{ cursor: 'pointer', padding: '0 8px', borderRadius: '4px', transition: 'all 0.3s' }} className="user-dropdown-hover">
-                <Avatar 
-                  size="small" 
-                  icon={<UserOutlined />} 
+                <Avatar
+                  size="small"
+                  icon={<UserOutlined />}
                   src={user?.avatar}
                   style={{ backgroundColor: '#1890ff' }}
                 />

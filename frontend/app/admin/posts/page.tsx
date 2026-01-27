@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
 import { apiGet, apiDelete } from '@/lib/api'
 import {
   Table,
@@ -13,9 +12,11 @@ import {
   Popconfirm,
   message,
   Image,
+  Select,
+  Input,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ClearOutlined } from '@ant-design/icons'
 
 const { Title } = Typography
 
@@ -44,6 +45,16 @@ interface Post {
   }>
 }
 
+interface CategoryOption {
+  id: number
+  name: string
+}
+
+interface TagOption {
+  id: number
+  name: string
+}
+
 interface PaginatedResponse<T> {
   items: T[]
   total: number
@@ -60,12 +71,36 @@ export default function PostsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
+  const [tagOptions, setTagOptions] = useState<TagOption[]>([])
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null)
+  const [filterTagId, setFilterTagId] = useState<number | null>(null)
+  const [filterStatus, setFilterStatus] = useState<string | null>(null)
+  const [filterSearch, setFilterSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const fetchingRef = useRef(false)
   const prevPathnameRef = useRef<string | null>(null)
 
+  // 拉取分类、标签供筛选使用
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const [catRes, tagRes] = await Promise.all([
+          apiGet<PaginatedResponse<CategoryOption>>('/api/v1/categories/?page=1&size=500', true),
+          apiGet<PaginatedResponse<TagOption>>('/api/v1/tags/?page=1&size=500', true),
+        ])
+        setCategoryOptions(catRes.items)
+        setTagOptions(tagRes.items)
+      } catch (e) {
+        console.error('加载分类/标签失败:', e)
+      }
+    }
+    loadOptions()
+  }, [])
+
   useEffect(() => {
     fetchPosts()
-  }, [page, pageSize])
+  }, [page, pageSize, filterCategoryId, filterTagId, filterStatus, filterSearch])
 
   // 监听路由变化，当从新建/编辑页面返回时自动刷新
   useEffect(() => {
@@ -84,16 +119,18 @@ export default function PostsPage() {
   }, [pathname])
 
   const fetchPosts = async () => {
-    // 防止重复请求
-    if (fetchingRef.current) {
-      return
-    }
-    
+    if (fetchingRef.current) return
     try {
       fetchingRef.current = true
       setLoading(true)
-      // 不传status参数，让后端返回所有状态的文章（管理员）
-      const data = await apiGet<PaginatedResponse<Post>>(`/api/v1/posts/?page=${page}&size=${pageSize}`, true)
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      params.set('size', String(pageSize))
+      if (filterCategoryId != null) params.set('category_id', String(filterCategoryId))
+      if (filterTagId != null) params.set('tag_id', String(filterTagId))
+      if (filterStatus) params.set('status', filterStatus)
+      if (filterSearch.trim()) params.set('search', filterSearch.trim())
+      const data = await apiGet<PaginatedResponse<Post>>(`/api/v1/posts/?${params.toString()}`, true)
       setPosts(data.items)
       setTotal(data.total)
     } catch (error) {
@@ -103,6 +140,20 @@ export default function PostsPage() {
       setLoading(false)
       fetchingRef.current = false
     }
+  }
+
+  const handleSearch = () => {
+    setFilterSearch(searchInput)
+    setPage(1)
+  }
+
+  const handleClearFilters = () => {
+    setFilterCategoryId(null)
+    setFilterTagId(null)
+    setFilterStatus(null)
+    setFilterSearch('')
+    setSearchInput('')
+    setPage(1)
   }
 
   const handleDelete = async (id: number) => {
@@ -306,6 +357,8 @@ export default function PostsPage() {
     },
   ]
 
+  const hasActiveFilters = filterCategoryId != null || filterTagId != null || filterStatus != null || (filterSearch && filterSearch.trim() !== '')
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -319,6 +372,73 @@ export default function PostsPage() {
         >
           新建文章
         </Button>
+      </div>
+
+      <div
+        style={{
+          marginBottom: 16,
+          padding: '12px 16px',
+          background: '#fafafa',
+          borderRadius: 8,
+          border: '1px solid #f0f0f0',
+        }}
+      >
+        <Space wrap size="middle" align="center">
+          <Space align="center">
+            <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>分类</Typography.Text>
+            <Select
+              placeholder="全部分类"
+              allowClear
+              style={{ width: 160 }}
+              value={filterCategoryId ?? undefined}
+              onChange={(v) => { setFilterCategoryId(v ?? null); setPage(1) }}
+              options={categoryOptions.map((c) => ({ label: c.name, value: c.id }))}
+            />
+          </Space>
+          <Space align="center">
+            <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>标签</Typography.Text>
+            <Select
+              placeholder="全部标签"
+              allowClear
+              style={{ width: 160 }}
+              value={filterTagId ?? undefined}
+              onChange={(v) => { setFilterTagId(v ?? null); setPage(1) }}
+              options={tagOptions.map((t) => ({ label: t.name, value: t.id }))}
+            />
+          </Space>
+          <Space align="center">
+            <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>状态</Typography.Text>
+            <Select
+              placeholder="全部状态"
+              allowClear
+              style={{ width: 120 }}
+              value={filterStatus ?? undefined}
+              onChange={(v) => { setFilterStatus(v ?? null); setPage(1) }}
+              options={[
+                { label: '已发布', value: 'PUBLISHED' },
+                { label: '草稿', value: 'DRAFT' },
+              ]}
+            />
+          </Space>
+          <Space.Compact>
+            <Input
+              placeholder="标题或内容关键词"
+              allowClear
+              style={{ width: 180 }}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onPressEnter={handleSearch}
+            />
+            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+              搜索
+            </Button>
+          </Space.Compact>
+          {hasActiveFilters && (
+            <Button icon={<ClearOutlined />} onClick={handleClearFilters}>
+              清空筛选
+            </Button>
+          )}
+        </Space>
       </div>
 
       <Table

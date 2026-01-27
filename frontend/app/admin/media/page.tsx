@@ -260,28 +260,12 @@ export default function MediaPage() {
       title: '文件URL',
       dataIndex: 'file_url',
       key: 'file_url',
-      ellipsis: true,
+      width: 220,
+      ellipsis: { showTitle: true },
       render: (url: string) => (
-        <Space>
-          <span style={{ maxWidth: 300, display: 'inline-block' }}>{url}</span>
-          <Button
-            type="link"
-            size="small"
-            icon={<CopyOutlined />}
-            onClick={() => copyToClipboard(url)}
-          >
-            复制
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<DownloadOutlined />}
-            href={url}
-            target="_blank"
-          >
-            下载
-          </Button>
-        </Space>
+        <span title={url} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {url}
+        </span>
       ),
     },
     {
@@ -294,19 +278,39 @@ export default function MediaPage() {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 180,
       fixed: 'right',
       render: (_: any, record: Media) => (
-        <Popconfirm
-          title={`确定要删除文件 "${record.file_name}" 吗？`}
-          onConfirm={() => handleDelete(record.id)}
-          okText="确定"
-          cancelText="取消"
-        >
-          <Button type="link" danger icon={<DeleteOutlined />}>
-            删除
+        <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={() => copyToClipboard(record.file_url)}
+          >
+            复制URL
           </Button>
-        </Popconfirm>
+          <Button
+            type="link"
+            size="small"
+            icon={<DownloadOutlined />}
+            href={record.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            下载
+          </Button>
+          <Popconfirm
+            title={`确定要删除文件 "${record.file_name}" 吗？`}
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ]

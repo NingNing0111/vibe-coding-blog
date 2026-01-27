@@ -30,7 +30,7 @@ export default function RegisterPage() {
       const data = await response.json()
       setCodeSent(true)
       message.success(`验证码已发送（开发环境）：${data.code || '请查看控制台'}`)
-      
+
       // 开始倒计时
       setCountdown(60)
       const timer = setInterval(() => {
@@ -75,14 +75,14 @@ export default function RegisterPage() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Content style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
+      <Content style={{
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
       }}>
-        <div style={{ 
-          maxWidth: '400px', 
+        <div style={{
+          maxWidth: '400px',
           width: '100%',
           padding: '32px',
           background: 'var(--ant-color-bg-container)',
@@ -139,7 +139,7 @@ export default function RegisterPage() {
             >
               <Space.Compact style={{ width: '100%' }}>
                 <Input placeholder="请输入验证码" />
-                <Button 
+                <Button
                   onClick={handleSendCode}
                   disabled={countdown > 0}
                 >

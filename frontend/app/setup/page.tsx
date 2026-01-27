@@ -95,8 +95,8 @@ export default function SetupPage() {
   const [initialized, setInitialized] = useState<boolean | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [codeSent, setCodeSent] = useState(false)
   const [currentStep, setCurrentStep] = useState(0) // 0: 管理员信息, 1: 配置信息
+  const [step1Data, setStep1Data] = useState<{ email: string; username: string; password: string } | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -118,34 +118,15 @@ export default function SetupPage() {
     }
   }
 
-  const handleSendCode = async () => {
-    const email = form.getFieldValue('email')
-    if (!email) {
-      message.error('请先输入邮箱地址')
-      return
-    }
-
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/send-verification-code?email=${encodeURIComponent(email)}`,
-        { method: 'POST' }
-      )
-      const data = await response.json()
-      setCodeSent(true)
-      if (data.code) {
-        message.info(`验证码已发送（开发环境）：${data.code}`)
-      } else {
-        message.success('验证码已发送，请查看邮箱')
-      }
-    } catch (err: any) {
-      message.error(err.message || '发送验证码失败')
-    }
-  }
-
   const handleNext = async () => {
     try {
-      // 验证第一步（管理员信息）
-      await form.validateFields(['email', 'username', 'password', 'verification_code'])
+      // 验证第一步（管理员信息）并保存，供提交时使用（第二步时第一步表单项已卸载）
+      const step1Values = await form.validateFields(['email', 'username', 'password'])
+      setStep1Data({
+        email: step1Values.email,
+        username: step1Values.username,
+        password: step1Values.password,
+      })
       setCurrentStep(1)
     } catch (error) {
       console.error('验证失败:', error)
@@ -157,48 +138,57 @@ export default function SetupPage() {
       setError('')
       setLoading(true)
 
-      // 验证所有字段
+      // 第二步时只校验配置项；管理员信息来自 step1Data
       const values = await form.validateFields()
-
-      // 准备提交数据
-      const submitData = {
+      const admin = step1Data ?? {
         email: values.email,
         username: values.username,
         password: values.password,
-        verification_code: values.verification_code,
+      }
+
+      const submitData = {
+        email: admin.email,
+        username: admin.username,
+        password: admin.password,
         configs: {
           site_basic: {
-            site_title: values.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || '',
-            site_subtitle: values.site_subtitle || process.env.NEXT_PUBLIC_SITE_SUBTITLE || '',
-            site_description: values.site_description || process.env.NEXT_PUBLIC_SITE_DESCRIPTION || '',
-            site_keywords: values.site_keywords || '',
-            site_logo: values.site_logo || '',
-            site_copyright: values.site_copyright || '',
+            site_title: values.site_title ?? process.env.NEXT_PUBLIC_SITE_TITLE ?? '',
+            site_subtitle: values.site_subtitle ?? process.env.NEXT_PUBLIC_SITE_SUBTITLE ?? '',
+            site_description: values.site_description ?? process.env.NEXT_PUBLIC_SITE_DESCRIPTION ?? '',
+            site_keywords: values.site_keywords ?? '',
+            site_logo: values.site_logo ?? '',
+            site_copyright: values.site_copyright ?? '',
           },
           blogger: {
-            blogger_avatar: values.blogger_avatar || '',
-            blogger_signature: values.blogger_signature || '',
-            blogger_socials: values.blogger_socials || [],
+            blogger_avatar: values.blogger_avatar ?? '',
+            blogger_signature: values.blogger_signature ?? '',
+            blogger_socials: values.blogger_socials ?? [],
           },
           oss: {
-            oss_type: values.oss_type || '',
-            oss_access_key_id: values.oss_access_key_id || '',
-            oss_secret_access_key: values.oss_secret_access_key || '',
-            oss_region: values.oss_region || '',
-            oss_bucket_name: values.oss_bucket_name || '',
-            oss_endpoint: values.oss_endpoint || '',
+            oss_type: values.oss_type ?? '',
+            oss_access_key_id: values.oss_access_key_id ?? '',
+            oss_secret_access_key: values.oss_secret_access_key ?? '',
+            oss_region: values.oss_region ?? '',
+            oss_bucket_name: values.oss_bucket_name ?? '',
+            oss_endpoint: values.oss_endpoint ?? '',
           },
           email: {
-            smtp_host: values.smtp_host || '',
-            smtp_port: values.smtp_port || 587,
-            smtp_user: values.smtp_user || '',
-            smtp_password: values.smtp_password || '',
-            smtp_from_email: values.smtp_from_email || '',
+            smtp_host: values.smtp_host ?? '',
+            smtp_port: values.smtp_port ?? 587,
+            smtp_user: values.smtp_user ?? '',
+            smtp_password: values.smtp_password ?? '',
+            smtp_from_email: values.smtp_from_email ?? '',
           },
           llm: {
-            llm_api_key: values.llm_api_key || '',
-            llm_base_url: values.llm_base_url || 'https://api.openai.com/v1',
-            llm_model: values.llm_model || 'gpt-3.5-turbo',
+            llm_api_key: values.llm_api_key ?? '',
+            llm_base_url: values.llm_base_url ?? 'https://api.openai.com/v1',
+            llm_model: values.llm_model ?? 'gpt-3.5-turbo',
+          },
+          prompt: {
+            polish_system_prompt: values.polish_system_prompt ?? '你是一个专业的文案编辑助手。',
+          },
+          friendly_links: {
+            links: values.friendly_links ?? [],
           },
         },
       }
@@ -307,27 +297,6 @@ export default function SetupPage() {
                   placeholder="请输入密码"
                   className="dark:bg-gray-700 dark:text-gray-100"
                 />
-              </Form.Item>
-
-              <Form.Item
-                label="验证码"
-                name="verification_code"
-                rules={[{ required: true, message: '请输入验证码' }]}
-              >
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="请输入验证码"
-                    className="flex-1 dark:bg-gray-700 dark:text-gray-100"
-                  />
-                  <Button
-                    type="default"
-                    onClick={handleSendCode}
-                    disabled={codeSent}
-                    className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
-                  >
-                    {codeSent ? '已发送' : '发送验证码'}
-                  </Button>
-                </div>
               </Form.Item>
 
               <div className="flex justify-end">

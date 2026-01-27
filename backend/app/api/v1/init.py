@@ -6,21 +6,18 @@ from pydantic import BaseModel, EmailStr
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.config import Config
-from app.schemas.user import UserCreate
 from app.schemas.config import AllConfigs
 from app.core.security import get_password_hash
-from app.core.redis_client import get_redis, get_cache, delete_cache
 import json
 
 router = APIRouter()
 
 
 class SetupRequest(BaseModel):
-    """初始化请求，包含管理员信息和配置信息"""
+    """初始化请求，包含管理员信息和配置信息（无需验证码）"""
     email: EmailStr
     username: str
     password: str
-    verification_code: str
     configs: AllConfigs
 
 
@@ -55,23 +52,6 @@ async def setup_system(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="系统已初始化，无法重复初始化"
-        )
-    
-    # 验证验证码
-    cache_key = f"email:verify:{setup_data.email}"
-    cached_data = await get_cache(cache_key)
-    
-    if not cached_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="验证码已过期或不存在"
-        )
-    
-    verify_data = json.loads(cached_data)
-    if verify_data["code"] != setup_data.verification_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="验证码错误"
         )
     
     # 检查用户是否已存在
@@ -143,9 +123,6 @@ async def setup_system(
     
     await db.commit()
     await db.refresh(new_admin)
-    
-    # 删除验证码
-    await delete_cache(cache_key)
     
     return {
         "message": "系统初始化成功",

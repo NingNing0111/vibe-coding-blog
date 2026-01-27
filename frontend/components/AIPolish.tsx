@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGet, apiPost } from '@/lib/api'
+import { apiGet, apiPost, getApiBaseUrl } from '@/lib/api'
 import MarkdownContent from '@/components/MarkdownContent'
 import { Modal } from 'antd'
 
@@ -63,7 +63,7 @@ export default function AIPolish({ content, onPolishComplete }: AIPolishProps) {
       setModalVisible(true) // 打开弹窗
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/ai/polish`,
+        `${getApiBaseUrl()}/api/v1/ai/polish`,
         {
           method: 'POST',
           headers: {

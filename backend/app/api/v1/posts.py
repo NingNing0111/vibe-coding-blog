@@ -14,6 +14,7 @@ from app.models.post import Post, PostStatus
 from app.models.user import User
 from app.models.category import Category
 from app.models.tag import Tag
+from app.models.comment import Comment
 import json
 import math
 
@@ -57,7 +58,23 @@ async def get_published_posts(
     result = await db.execute(query)
     posts = result.scalars().all()
 
-    posts_data = [PostListResponse.model_validate(p).model_dump() for p in posts]
+    # 从评论表实时统计评论数，避免与 posts.comment_count 缓存不一致
+    post_ids = [p.id for p in posts]
+    comment_counts = {}
+    if post_ids:
+        count_stmt = (
+            select(Comment.post_id, func.count(Comment.id).label("cnt"))
+            .where(Comment.post_id.in_(post_ids), Comment.is_deleted == False)
+            .group_by(Comment.post_id)
+        )
+        count_result = await db.execute(count_stmt)
+        comment_counts = {row.post_id: row.cnt for row in count_result.all()}
+
+    posts_data = []
+    for p in posts:
+        item = PostListResponse.model_validate(p).model_dump()
+        item["comment_count"] = comment_counts.get(p.id, 0)
+        posts_data.append(item)
     pages = math.ceil(total / size) if total > 0 else 1
 
     response_data = {

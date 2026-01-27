@@ -88,6 +88,12 @@ async def create_comment(
                 detail="父评论不存在"
             )
     
+    # 先统计当前评论数（必须在 add 之前，否则同一 session 的 count 会包含未提交的新评论导致多算）
+    current_count = await db.scalar(
+        select(func.count(Comment.id))
+        .where(Comment.post_id == post.id, Comment.is_deleted == False)
+    ) or 0
+
     # 创建评论
     new_comment = Comment(
         content=comment_data.content,
@@ -96,12 +102,9 @@ async def create_comment(
         parent_id=comment_data.parent_id
     )
     db.add(new_comment)
-    
+
     # 更新文章评论数
-    post.comment_count = await db.scalar(
-        select(func.count(Comment.id))
-        .where(Comment.post_id == post.id, Comment.is_deleted == False)
-    ) + 1
+    post.comment_count = current_count + 1
     
     await db.commit()
     await db.refresh(new_comment)
@@ -216,8 +219,8 @@ async def delete_comment(
     # 软删除
     comment.is_deleted = True
     await db.commit()
-    
-    # 更新文章评论数
+
+    # 更新文章评论数（软删后重查 post，再统计并提交）
     result = await db.execute(select(Post).where(Post.id == comment.post_id))
     post = result.scalar_one_or_none()
     if post:
@@ -225,3 +228,4 @@ async def delete_comment(
             select(func.count(Comment.id))
             .where(Comment.post_id == post.id, Comment.is_deleted == False)
         )
+        await db.commit()

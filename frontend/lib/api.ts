@@ -1,4 +1,16 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+/** 获取实际请求用的 API 根地址，避免 HTTPS 页面请求 HTTP 导致混合内容被拦截（供同模块及直接 fetch 的组件使用） */
+export function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return CONFIGURED_API_URL
+  try {
+    const url = new URL(CONFIGURED_API_URL)
+    if (window.location.host === url.host && window.location.protocol === 'https:' && url.protocol === 'http:') {
+      return `https://${url.host}`
+    }
+  } catch (_) {}
+  return CONFIGURED_API_URL
+}
 
 export interface ApiResponse<T> {
   data?: T
@@ -48,7 +60,7 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
     ...options,
     headers,
   })

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Layout, Form, Input, Button, Alert, Space, Typography, message } from 'antd'
-import { apiPost } from '@/lib/api'
+import { apiPost, getApiBaseUrl } from '@/lib/api'
 
 const { Content } = Layout
 
@@ -25,7 +25,7 @@ export default function RegisterPage() {
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/send-verification-code?email=${encodeURIComponent(email)}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/send-verification-code?email=${encodeURIComponent(email)}`, {
         method: 'POST',
       })
       const data = await response.json()

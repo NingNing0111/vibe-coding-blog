@@ -87,78 +87,74 @@ class Settings(BaseSettings):
     )
 
 
+# 数据库 configs.key -> Settings 属性名 的映射（与 config_loader / 管理端使用的 key 一致）
+_DB_KEY_TO_SETTINGS_ATTR = {
+    "secret_key": "SECRET_KEY",
+    "access_token_expire_minutes": "ACCESS_TOKEN_EXPIRE_MINUTES",
+    "refresh_token_expire_days": "REFRESH_TOKEN_EXPIRE_DAYS",
+    "cors_origins": "CORS_ORIGINS",
+    "aws_access_key_id": "AWS_ACCESS_KEY_ID",
+    "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+    "aws_region": "AWS_REGION",
+    "s3_bucket_name": "S3_BUCKET_NAME",
+    "smtp_host": "SMTP_HOST",
+    "smtp_port": "SMTP_PORT",
+    "smtp_user": "SMTP_USER",
+    "smtp_password": "SMTP_PASSWORD",
+    "smtp_from_email": "SMTP_FROM_EMAIL",
+    "llm_api_key": "OPENAI_API_KEY",
+    "llm_base_url": "OPENAI_BASE_URL",
+}
+# OSS 使用 oss_ 前缀时也映射到 Settings 的 AWS/S3 字段
+_OSS_TO_SETTINGS = {
+    "oss_access_key_id": "AWS_ACCESS_KEY_ID",
+    "oss_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+    "oss_region": "AWS_REGION",
+    "oss_bucket_name": "S3_BUCKET_NAME",
+}
+
+
 def _override_settings_from_db(settings: Settings) -> Settings:
     """
     使用数据库 configs 表中的配置覆盖除 DATABASE_URL / REDIS_URL 之外的其它配置。
 
-    - PG / Redis 连接：始终从 .env / 环境变量读取（即 Settings.DATABASE_URL / REDIS_URL）
-    - 其它配置：如果数据库中存在对应 key，则覆盖 settings 中的值
-
-    数据库表结构假定为：configs(key TEXT UNIQUE, value TEXT)
+    - PG / Redis 连接：始终从 .env / 环境变量读取。
+    - 其它配置：若数据库中存在对应 key，则覆盖；通过 model_copy(update=...) 生成新实例，确保生效。
     """
     db_url = getattr(settings, "DATABASE_URL", None)
     if not db_url:
         return settings
 
-    # 将 asyncpg URL 转换为同步驱动 URL，方便一次性同步查询
     sync_db_url = db_url.replace("+asyncpg", "")
-
     try:
         engine = create_engine(sync_db_url, future=True)
         with engine.connect() as conn:
             result = conn.execute(text("SELECT key, value FROM configs"))
             rows = result.fetchall()
     except Exception:
-        # 数据库不可用时，不影响应用启动，直接返回原始 settings
         return settings
 
-    config_map: Dict[str, str] = {
-        row[0]: row[1]
-        for row in rows
-        if row[1] is not None
-    }
+    config_map: Dict[str, str] = {row[0]: row[1] for row in rows if row[1] is not None}
 
-    # 数据库 key -> Settings 属性名 的映射
-    key_to_attr = {
-        # JWT
-        "secret_key": "SECRET_KEY",
-        "access_token_expire_minutes": "ACCESS_TOKEN_EXPIRE_MINUTES",
-        "refresh_token_expire_days": "REFRESH_TOKEN_EXPIRE_DAYS",
-        # CORS
-        "cors_origins": "CORS_ORIGINS",
-        # S3 / OSS 相关
-        "aws_access_key_id": "AWS_ACCESS_KEY_ID",
-        "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
-        "aws_region": "AWS_REGION",
-        "s3_bucket_name": "S3_BUCKET_NAME",
-        # 邮件
-        "smtp_host": "SMTP_HOST",
-        "smtp_port": "SMTP_PORT",
-        "smtp_user": "SMTP_USER",
-        "smtp_password": "SMTP_PASSWORD",
-        "smtp_from_email": "SMTP_FROM_EMAIL",
-        # LLM / OpenAI
-        "llm_api_key": "OPENAI_API_KEY",
-        "llm_base_url": "OPENAI_BASE_URL",
-    }
+    int_attrs = {"ACCESS_TOKEN_EXPIRE_MINUTES", "REFRESH_TOKEN_EXPIRE_DAYS", "SMTP_PORT"}
+    key_to_attr = {**_DB_KEY_TO_SETTINGS_ATTR, **_OSS_TO_SETTINGS}
+    overrides: Dict[str, object] = {}
 
     for db_key, attr_name in key_to_attr.items():
-        if db_key not in config_map or not hasattr(settings, attr_name):
+        if db_key not in config_map:
             continue
-        raw_value = config_map[db_key]
-
-        # 简单类型转换
-        if attr_name in {"ACCESS_TOKEN_EXPIRE_MINUTES", "REFRESH_TOKEN_EXPIRE_DAYS", "SMTP_PORT"}:
+        raw = config_map[db_key]
+        if attr_name in int_attrs:
             try:
-                value = int(raw_value)
+                overrides[attr_name] = int(raw)
             except (TypeError, ValueError):
-                continue
+                pass
         else:
-            value = raw_value
+            overrides[attr_name] = raw
 
-        setattr(settings, attr_name, value)
-
-    return settings
+    if not overrides:
+        return settings
+    return settings.model_copy(update=overrides)
 
 
 # 先从 .env / 环境变量构建 Settings（包含 DATABASE_URL / REDIS_URL 等）

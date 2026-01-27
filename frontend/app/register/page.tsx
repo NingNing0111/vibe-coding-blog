@@ -18,6 +18,7 @@ export default function RegisterPage() {
 
   const handleSendCode = async () => {
     try {
+      setError('')
       const email = form.getFieldValue('email')
       if (!email) {
         message.error('请先输入邮箱地址')
@@ -28,6 +29,13 @@ export default function RegisterPage() {
         method: 'POST',
       })
       const data = await response.json()
+
+      if (!response.ok) {
+        const detail = (data && (data.detail || data.message)) || '发送验证码失败'
+        message.error(detail)
+        throw new Error(detail)
+      }
+
       setCodeSent(true)
       message.success(`验证码已发送（开发环境）：${data.code || '请查看控制台'}`)
 

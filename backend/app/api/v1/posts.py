@@ -207,7 +207,16 @@ async def get_post(slug: str, db: AsyncSession = Depends(get_db)):
     cache_key = f"post:detail:{slug}"
     cached = await get_cache(cache_key)
     if cached:
-        return json.loads(cached)
+        data = json.loads(cached)
+        # 评论数始终从评论表实时统计，不信任缓存中的 comment_count
+        post_id = data.get("id")
+        if post_id is not None:
+            comment_count = await db.scalar(
+                select(func.count(Comment.id))
+                .where(Comment.post_id == post_id, Comment.is_deleted == False)
+            ) or 0
+            data["comment_count"] = comment_count
+        return data
     
     result = await db.execute(
         select(Post)
@@ -230,8 +239,14 @@ async def get_post(slug: str, db: AsyncSession = Depends(get_db)):
     post.view_count += 1
     await db.commit()
     
-    # 缓存结果
+    # 从评论表实时统计评论数，与列表接口一致，避免 posts.comment_count 不同步
+    comment_count = await db.scalar(
+        select(func.count(Comment.id))
+        .where(Comment.post_id == post.id, Comment.is_deleted == False)
+    ) or 0
+    
     post_data = PostResponse.model_validate(post).model_dump()
+    post_data["comment_count"] = comment_count
     await set_cache(cache_key, json.dumps(post_data, default=str), ttl=300)
     
     return post_data

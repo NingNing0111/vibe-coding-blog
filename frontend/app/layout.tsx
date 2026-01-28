@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, Roboto, Open_Sans, Noto_Sans_SC } from 'next/font/google'
 import './globals.css'
+import { getApiBaseUrl } from '@/lib/api'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ConfigProvider } from '@/contexts/ConfigContext'
 import LayoutWrapper from '@/components/LayoutWrapper'
@@ -16,8 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const defaultDesc = process.env.NEXT_PUBLIC_SITE_DESCRIPTION || '分享编程经验、技术见解与开发心得的技术博客'
 
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    const res = await fetch(`${apiUrl}/api/v1/config/structured/all`, {
+    const base = getApiBaseUrl()
+    const res = await fetch(`${base}/api/v1/config/structured/all`, {
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(2000) // 2秒超时，防止阻塞
     })

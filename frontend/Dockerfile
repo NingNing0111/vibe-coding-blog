@@ -18,8 +18,11 @@ COPY . .
 
 # Set environment variables for build
 # ARG 用于从 docker-compose 传递构建时环境变量
+# 同域部署时：NEXT_PUBLIC_API_URL=/api，NEXT_PUBLIC_SITE_ORIGIN=https://你的域名
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_SITE_ORIGIN=
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SITE_ORIGIN=$NEXT_PUBLIC_SITE_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Ensure public directory exists

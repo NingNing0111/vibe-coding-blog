@@ -1,18 +1,26 @@
-const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
-/** 获取实际请求用的 API 根地址，避免 HTTPS 页面请求 HTTP 导致混合内容被拦截（供同模块及直接 fetch 的组件使用） */
+/**
+ * 获取实际请求用的 API 根地址。
+ * - 配置为路径（如 /api）：同域部署，浏览器用相对路径，SSR 用 NEXT_PUBLIC_SITE_ORIGIN。
+ * - 配置为完整 URL：跨域或本地开发，同域时自动用当前页 origin 避免 Mixed Content。
+ */
 export function getApiBaseUrl(): string {
-  if (typeof window === 'undefined') return CONFIGURED_API_URL
+  const isPath = typeof CONFIGURED_API_URL === 'string' && CONFIGURED_API_URL.startsWith('/')
+  if (typeof window === 'undefined') {
+    // SSR：路径时用站点 origin，否则用配置的完整 URL
+    if (isPath) {
+      const origin = (process.env.NEXT_PUBLIC_SITE_ORIGIN || 'http://localhost:3000').replace(/\/$/, '')
+      return origin
+    }
+    return CONFIGURED_API_URL
+  }
+  // 浏览器：路径表示同域，用空字符串以便请求 /api/v1/... 为相对路径
+  if (isPath) return ''
   try {
     const url = new URL(CONFIGURED_API_URL)
-    // 同域时直接使用当前页面的 origin，保证协议一致（解决 Mixed Content：HTTPS 页请求 HTTP 被拦截）
-    if (window.location.host === url.host) {
-      return window.location.origin
-    }
-    // 跨域但当前页是 HTTPS 且配置为 HTTP 时，升级为 HTTPS
-    if (window.location.protocol === 'https:' && url.protocol === 'http:') {
-      return `https://${url.host}`
-    }
+    if (window.location.host === url.host) return window.location.origin
+    if (window.location.protocol === 'https:' && url.protocol === 'http:') return `https://${url.host}`
   } catch (_) {}
   return CONFIGURED_API_URL
 }

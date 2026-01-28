@@ -5,7 +5,12 @@ export function getApiBaseUrl(): string {
   if (typeof window === 'undefined') return CONFIGURED_API_URL
   try {
     const url = new URL(CONFIGURED_API_URL)
-    if (window.location.host === url.host && window.location.protocol === 'https:' && url.protocol === 'http:') {
+    // 同域时直接使用当前页面的 origin，保证协议一致（解决 Mixed Content：HTTPS 页请求 HTTP 被拦截）
+    if (window.location.host === url.host) {
+      return window.location.origin
+    }
+    // 跨域但当前页是 HTTPS 且配置为 HTTP 时，升级为 HTTPS
+    if (window.location.protocol === 'https:' && url.protocol === 'http:') {
       return `https://${url.host}`
     }
   } catch (_) {}

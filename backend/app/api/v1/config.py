@@ -10,7 +10,7 @@ from app.schemas.config import (
     ConfigCreate, ConfigUpdate, ConfigResponse, 
     ConfigBatchUpdate, AllConfigs, SiteBasicConfig, 
     BloggerConfig, OSSConfig, EmailConfig, LLMConfig, PromptConfig, PublicConfigs,
-    FriendlyLinksConfig
+    FriendlyLinksConfig, OpenSourceProjectConfig, HeaderMenuConfig, HeaderMenuItem
 )
 from app.models.config import Config
 from app.models.user import User
@@ -150,6 +150,8 @@ def _build_site_basic(configs: Dict[str, Any]) -> SiteBasicConfig:
         site_keywords=configs.get("site_keywords", ""),
         site_logo=configs.get("site_logo", ""),
         site_copyright=configs.get("site_copyright", ""),
+        site_head_script=configs.get("site_head_script", ""),
+        site_footer_script=configs.get("site_footer_script", ""),
     )
 
 
@@ -179,6 +181,34 @@ def _build_friendly_links(configs: Dict[str, Any]) -> FriendlyLinksConfig:
     except (json.JSONDecodeError, TypeError):
         pass
     return FriendlyLinksConfig(links=links)
+
+
+def _build_open_source_projects(configs: Dict[str, Any]) -> List[OpenSourceProjectConfig]:
+    """构建开源项目列表，数据以 JSON 字符串形式存储在 open_source_projects 配置键中"""
+    projects: List[OpenSourceProjectConfig] = []
+    try:
+        raw = configs.get("open_source_projects")
+        if raw:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict):
+                        projects.append(OpenSourceProjectConfig(**item))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return projects
+
+
+def _build_header_menu(configs: Dict[str, Any]) -> HeaderMenuConfig:
+    items = []
+    try:
+        if configs.get("header_menu_items"):
+            raw = json.loads(configs["header_menu_items"])
+            if isinstance(raw, list):
+                items = [HeaderMenuItem(**x) if isinstance(x, dict) else HeaderMenuItem() for x in raw]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return HeaderMenuConfig(items=items)
 
 
 def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
@@ -217,6 +247,8 @@ def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
         llm=llm,
         prompt=prompt,
         friendly_links=_build_friendly_links(configs),
+        open_source_projects=_build_open_source_projects(configs),
+        header_menu=_build_header_menu(configs),
     )
 
 
@@ -225,6 +257,8 @@ def _build_public_configs(configs: Dict[str, Any]) -> PublicConfigs:
         site_basic=_build_site_basic(configs),
         blogger=_build_blogger(configs),
         friendly_links=_build_friendly_links(configs),
+        open_source_projects=_build_open_source_projects(configs),
+        header_menu=_build_header_menu(configs),
     )
 
 
@@ -264,6 +298,8 @@ async def update_structured_configs(
     configs_dict["site_keywords"] = configs_data.site_basic.site_keywords
     configs_dict["site_logo"] = configs_data.site_basic.site_logo
     configs_dict["site_copyright"] = configs_data.site_basic.site_copyright
+    configs_dict["site_head_script"] = configs_data.site_basic.site_head_script
+    configs_dict["site_footer_script"] = configs_data.site_basic.site_footer_script
     
     # 博主配置
     configs_dict["blogger_avatar"] = configs_data.blogger.blogger_avatar
@@ -295,6 +331,18 @@ async def update_structured_configs(
     
     # 友链配置
     configs_dict["friendly_links"] = json.dumps([link.model_dump() for link in configs_data.friendly_links.links], ensure_ascii=False)
+
+    # 首页个人开源项目配置（列表，以 JSON 形式整体存储）
+    configs_dict["open_source_projects"] = json.dumps(
+        [project.model_dump() for project in configs_data.open_source_projects],
+        ensure_ascii=False
+    )
+
+    # 首页头部菜单项配置
+    configs_dict["header_menu_items"] = json.dumps(
+        [item.model_dump() for item in configs_data.header_menu.items],
+        ensure_ascii=False
+    )
     
     # 批量更新配置
     for key, value in configs_dict.items():

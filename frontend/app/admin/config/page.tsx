@@ -15,6 +15,8 @@ interface SiteBasicConfig {
   site_keywords: string
   site_logo: string
   site_copyright: string
+  site_head_script: string
+  site_footer_script: string
 }
 
 interface BloggerSocial {
@@ -65,6 +67,23 @@ interface FriendlyLinksConfig {
   links: FriendlyLink[]
 }
 
+interface OpenSourceProjectConfig {
+  project_name: string
+  project_description: string
+  github_url: string
+  cover_image: string
+}
+
+interface HeaderMenuItem {
+  icon: string
+  name: string
+  url: string
+}
+
+interface HeaderMenuConfig {
+  items: HeaderMenuItem[]
+}
+
 interface AllConfigs {
   site_basic: SiteBasicConfig
   blogger: BloggerConfig
@@ -73,6 +92,8 @@ interface AllConfigs {
   llm: LLMConfig
   prompt: PromptConfig
   friendly_links: FriendlyLinksConfig
+  open_source_projects: OpenSourceProjectConfig[]
+  header_menu: HeaderMenuConfig
 }
 
 const SOCIAL_TYPES = [
@@ -94,6 +115,21 @@ const OSS_TYPES = [
   { label: '七牛云', value: 'qiniu' },
   { label: '腾讯云COS', value: 'tencent' },
   { label: '其他', value: 'other' },
+]
+
+const HEADER_MENU_ICONS = [
+  { label: '无图标', value: '' },
+  { label: '首页', value: 'HomeOutlined' },
+  { label: '文章', value: 'BookOutlined' },
+  { label: '代码', value: 'CodeOutlined' },
+  { label: 'Github', value: 'GithubOutlined' },
+  { label: '链接', value: 'LinkOutlined' },
+  { label: '用户', value: 'UserOutlined' },
+  { label: '标签', value: 'TagOutlined' },
+  { label: '文件夹', value: 'FolderOutlined' },
+  { label: '星标', value: 'StarOutlined' },
+  { label: '设置', value: 'SettingOutlined' },
+  { label: '全局', value: 'GlobalOutlined' },
 ]
 
 export default function ConfigPage() {
@@ -118,6 +154,8 @@ export default function ConfigPage() {
           site_keywords: data.site_basic?.site_keywords || '',
           site_logo: data.site_basic?.site_logo || '',
           site_copyright: data.site_basic?.site_copyright || '',
+          site_head_script: data.site_basic?.site_head_script || '',
+          site_footer_script: data.site_basic?.site_footer_script || '',
         },
         blogger: {
           blogger_avatar: data.blogger?.blogger_avatar || '',
@@ -149,6 +187,10 @@ export default function ConfigPage() {
         },
         friendly_links: {
           links: data.friendly_links?.links || [],
+        },
+        open_source_projects: data.open_source_projects || [],
+        header_menu: {
+          items: data.header_menu?.items || [],
         },
       })
     } catch (error) {
@@ -205,7 +247,7 @@ export default function ConfigPage() {
       </div>
 
       <Form form={form} layout="vertical" className="space-y-6">
-        <Collapse defaultActiveKey={['1', '2', '3', '4', '5', '6', '7']} ghost>
+        <Collapse defaultActiveKey={['1', '2', '3', '4', '5', '6', '7', '8', '9']} ghost>
           {/* 网站基本配置 */}
           <Panel header="网站基本配置" key="1">
             <Card>
@@ -253,6 +295,22 @@ export default function ConfigPage() {
                 name={['site_basic', 'site_copyright']}
               >
                 <Input placeholder="例如：© 2024 我的博客. All rights reserved." />
+              </Form.Item>
+
+              <Form.Item
+                label="头部脚本"
+                name={['site_basic', 'site_head_script']}
+                tooltip="注入到页面的 <head> 中，可填写 <script>、<link> 等 HTML 或第三方统计代码"
+              >
+                <TextArea rows={4} placeholder="例如：<script>...</script> 或 Google Analytics 等统计代码" />
+              </Form.Item>
+
+              <Form.Item
+                label="底部脚本"
+                name={['site_basic', 'site_footer_script']}
+                tooltip="注入到页面底部（</body> 前），适合统计、客服等脚本"
+              >
+                <TextArea rows={4} placeholder="例如：<script>...</script> 或百度统计等代码" />
               </Form.Item>
             </Card>
           </Panel>
@@ -513,6 +571,135 @@ export default function ConfigPage() {
                         icon={<PlusOutlined />}
                       >
                         添加友情链接
+                      </Button>
+                    </Form.Item>
+                  </>
+                )}
+              </Form.List>
+            </Card>
+          </Panel>
+
+          {/* 首页开源项目配置 */}
+          <Panel header="首页开源项目配置（支持多个）" key="8">
+            <Card>
+              <Form.List name={['open_source_projects']}>
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, ...restField }) => (
+                      <div key={key} className="p-4 border border-gray-100 rounded-lg mb-4 bg-gray-50/50">
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="font-medium text-gray-500">开源项目 #{name + 1}</span>
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => remove(name)}
+                          />
+                        </div>
+                        <Form.Item
+                          {...restField}
+                          label="项目名称"
+                          name={[name, 'project_name']}
+                          rules={[{ required: true, message: '请输入项目名称' }]}
+                        >
+                          <Input placeholder="例如：vibe-coding-blog" />
+                        </Form.Item>
+                        <Form.Item
+                          {...restField}
+                          label="项目描述"
+                          name={[name, 'project_description']}
+                        >
+                          <TextArea rows={3} placeholder="一句话介绍这个项目" />
+                        </Form.Item>
+                        <Form.Item
+                          {...restField}
+                          label="Github 地址"
+                          name={[name, 'github_url']}
+                          rules={[{ required: true, message: '请输入 Github 地址' }]}
+                        >
+                          <Input placeholder="https://github.com/xxx/yyy" />
+                        </Form.Item>
+                        <Form.Item
+                          {...restField}
+                          label="封面图 URL"
+                          name={[name, 'cover_image']}
+                        >
+                          <Input placeholder="https://example.com/cover.png" />
+                        </Form.Item>
+                      </div>
+                    ))}
+                    <Form.Item>
+                      <Button
+                        type="dashed"
+                        onClick={() => add()}
+                        block
+                        icon={<PlusOutlined />}
+                      >
+                        添加开源项目
+                      </Button>
+                    </Form.Item>
+                  </>
+                )}
+              </Form.List>
+            </Card>
+          </Panel>
+
+          {/* 首页头部菜单项配置 */}
+          <Panel header="首页头部菜单项配置" key="9">
+            <Card>
+              <p className="text-gray-500 text-sm mb-4">配置后将在网站头部导航展示，支持站内路径（如 /posts）或外链。</p>
+              <Form.List name={['header_menu', 'items']}>
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, ...restField }) => (
+                      <div key={key} className="p-4 border border-gray-100 rounded-lg mb-4 bg-gray-50/50">
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="font-medium text-gray-500">菜单项 #{name + 1}</span>
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => remove(name)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Form.Item
+                            {...restField}
+                            label="图标"
+                            name={[name, 'icon']}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <Select placeholder="选择图标" options={HEADER_MENU_ICONS} allowClear />
+                          </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            label="菜单名称"
+                            name={[name, 'name']}
+                            rules={[{ required: true, message: '请输入菜单名称' }]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <Input placeholder="例如：文章" />
+                          </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            label="跳转地址"
+                            name={[name, 'url']}
+                            rules={[{ required: true, message: '请输入跳转地址' }]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <Input placeholder="/posts 或 https://..." />
+                          </Form.Item>
+                        </div>
+                      </div>
+                    ))}
+                    <Form.Item>
+                      <Button
+                        type="dashed"
+                        onClick={() => add()}
+                        block
+                        icon={<PlusOutlined />}
+                      >
+                        添加菜单项
                       </Button>
                     </Form.Item>
                   </>

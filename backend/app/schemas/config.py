@@ -40,6 +40,8 @@ class SiteBasicConfig(BaseModel):
     site_keywords: str = ""
     site_logo: str = ""
     site_copyright: str = ""
+    site_head_script: str = ""
+    site_footer_script: str = ""
 
 
 class BloggerConfig(BaseModel):
@@ -92,6 +94,26 @@ class FriendlyLinksConfig(BaseModel):
     links: List[FriendlyLink] = []
 
 
+class OpenSourceProjectConfig(BaseModel):
+    """首页个人开源项目配置项"""
+    project_name: str = ""
+    project_description: str = ""
+    github_url: str = ""
+    cover_image: str = ""
+
+
+class HeaderMenuItem(BaseModel):
+    """首页头部菜单项"""
+    icon: str = ""
+    name: str = ""
+    url: str = ""
+
+
+class HeaderMenuConfig(BaseModel):
+    """首页头部菜单项配置（数组）"""
+    items: List[HeaderMenuItem] = []
+
+
 class AllConfigs(BaseModel):
     """所有配置的集合"""
     site_basic: SiteBasicConfig
@@ -99,8 +121,11 @@ class AllConfigs(BaseModel):
     oss: OSSConfig
     email: EmailConfig
     llm: LLMConfig
-    prompt: PromptConfig
-    friendly_links: FriendlyLinksConfig
+    prompt: PromptConfig = PromptConfig()
+    friendly_links: FriendlyLinksConfig = FriendlyLinksConfig()
+    # 初始化时可以不传下面两个配置，使用空配置作为默认值
+    open_source_projects: List[OpenSourceProjectConfig] = []
+    header_menu: HeaderMenuConfig = HeaderMenuConfig()
 
 
 class PublicConfigs(BaseModel):
@@ -108,3 +133,5 @@ class PublicConfigs(BaseModel):
     site_basic: SiteBasicConfig
     blogger: BloggerConfig
     friendly_links: FriendlyLinksConfig
+    open_source_projects: List[OpenSourceProjectConfig] = []
+    header_menu: HeaderMenuConfig

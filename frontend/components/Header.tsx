@@ -2,13 +2,65 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Layout, Menu, Button, Space, Drawer } from 'antd'
-import { CodeOutlined, MenuOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons'
+import { Layout, Menu, Button, Drawer } from 'antd'
+import {
+  CodeOutlined,
+  MenuOutlined,
+  SunOutlined,
+  MoonOutlined,
+  HomeOutlined,
+  BookOutlined,
+  GithubOutlined,
+  LinkOutlined,
+  UserOutlined,
+  TagOutlined,
+  FolderOutlined,
+  StarOutlined,
+  SettingOutlined,
+  GlobalOutlined,
+} from '@ant-design/icons'
 import { removeTokenCookie, removeRefreshTokenCookie, removeUserRoleCookie, getUserRoleCookie } from '@/lib/utils'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useConfig } from '@/contexts/ConfigContext'
+import type { HeaderMenuItem as HeaderMenuItemType } from '@/contexts/ConfigContext'
 
 const { Header: AntHeader } = Layout
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  HomeOutlined: <HomeOutlined />,
+  BookOutlined: <BookOutlined />,
+  CodeOutlined: <CodeOutlined />,
+  GithubOutlined: <GithubOutlined />,
+  LinkOutlined: <LinkOutlined />,
+  UserOutlined: <UserOutlined />,
+  TagOutlined: <TagOutlined />,
+  FolderOutlined: <FolderOutlined />,
+  StarOutlined: <StarOutlined />,
+  SettingOutlined: <SettingOutlined />,
+  GlobalOutlined: <GlobalOutlined />,
+}
+
+function getMenuLabel(url: string, name: string, closeDrawer?: () => void) {
+  const isInternal = url.startsWith('/')
+  const baseClassName = '!text-inherit hover:!text-inherit'
+  // 让头部菜单在不依赖额外 padding 的情况下就能出现省略号
+  // 固定一个最大宽度，并开启单行省略
+  const ellipsisClassName =
+    'inline-block max-w-[140px] truncate align-middle'
+  const className = `${baseClassName} ${ellipsisClassName}`
+  if (isInternal) {
+    return (
+      <Link href={url} className={className} onClick={closeDrawer}>
+        {name}
+      </Link>
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className={className} onClick={closeDrawer}>
+      {name}
+    </a>
+  )
+}
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -41,7 +93,24 @@ export default function Header() {
     window.location.href = '/'
   }
 
+  const headerMenuItems = (config?.header_menu?.items ?? []).filter(
+    (item: HeaderMenuItemType) => item.name?.trim() && item.url?.trim()
+  )
+
+  const configMenuItems = headerMenuItems.map((item: HeaderMenuItemType, index: number) => ({
+    key: `header-menu-${index}`,
+    icon: item.icon ? ICON_MAP[item.icon] : undefined,
+    label: getMenuLabel(item.url, item.name),
+  }))
+
+  const configMobileMenuItems = headerMenuItems.map((item: HeaderMenuItemType, index: number) => ({
+    key: `header-menu-${index}`,
+    icon: item.icon ? ICON_MAP[item.icon] : undefined,
+    label: getMenuLabel(item.url, item.name, () => setIsMobileMenuOpen(false)),
+  }))
+
   const menuItems = [
+    ...configMenuItems,
     {
       key: 'posts',
       label: <Link href="/posts">文章</Link>,
@@ -67,6 +136,7 @@ export default function Header() {
   ]
 
   const mobileMenuItems = [
+    ...configMobileMenuItems,
     {
       key: 'posts',
       label: <Link href="/posts" onClick={() => setIsMobileMenuOpen(false)}>文章</Link>,

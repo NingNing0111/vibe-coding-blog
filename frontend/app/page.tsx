@@ -114,6 +114,7 @@ export default function Home() {
   const siteTitle = config?.site_basic?.site_title || process.env.NEXT_PUBLIC_SITE_TITLE || '我的技术博客'
   const siteSubtitle = config?.site_basic?.site_subtitle || process.env.NEXT_PUBLIC_SITE_SUBTITLE || '分享编程经验、技术见解与开发心得'
   const siteDescription = config?.site_basic?.site_description || process.env.NEXT_PUBLIC_SITE_DESCRIPTION
+  const openSourceProjects = config?.open_source_projects || []
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
@@ -312,6 +313,57 @@ export default function Home() {
           </Row>
         </div>
       </section>
+
+      {/* Open Source Projects */}
+      {openSourceProjects.length > 0 && (
+        <section className="py-20 px-6 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <Typography.Title level={2} className="!mb-2 dark:!text-gray-100">个人开源项目</Typography.Title>
+              <Typography.Paragraph type="secondary" className="!mb-0">持续迭代中，欢迎 Star / Issue / PR</Typography.Paragraph>
+            </div>
+          </div>
+
+          <Row gutter={[24, 24]}>
+            {openSourceProjects.map((project, index) => (
+              <Col xs={24} md={12} lg={8} key={index}>
+                <Card
+                  hoverable
+                  className="h-full rounded-2xl overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 dark:bg-gray-900"
+                  styles={{ body: { padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' } }}
+                  cover={
+                    project.cover_image ? (
+                      <div className="h-48 overflow-hidden relative">
+                        <img
+                          src={project.cover_image}
+                          alt={project.project_name || 'Open Source Project'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : undefined
+                  }
+                >
+                  <Typography.Title level={4} className="!mb-2 dark:!text-gray-100">
+                    {project.project_name || '我的开源项目'}
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" className="!mb-4 !text-sm !line-clamp-3">
+                    {project.project_description || '一个持续打磨的开源项目，欢迎关注与参与。'}
+                  </Typography.Paragraph>
+                  {project.github_url && (
+                    <div className="mt-auto">
+                      <a href={project.github_url} target="_blank" rel="noreferrer">
+                        <Button type="primary" icon={<GithubOutlined />}>
+                          访问 Github
+                        </Button>
+                      </a>
+                    </div>
+                  )}
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </section>
+      )}
 
       {/* Footer / CTA */}
       <section className="py-24 text-center px-6">

@@ -10,6 +10,8 @@ export interface SiteBasicConfig {
   site_keywords: string
   site_logo: string
   site_copyright: string
+  site_head_script: string
+  site_footer_script: string
 }
 
 export interface BloggerSocial {
@@ -33,10 +35,29 @@ export interface FriendlyLinksConfig {
   links: FriendlyLink[]
 }
 
+export interface OpenSourceProjectConfig {
+  project_name: string
+  project_description: string
+  github_url: string
+  cover_image: string
+}
+
+export interface HeaderMenuItem {
+  icon: string
+  name: string
+  url: string
+}
+
+export interface HeaderMenuConfig {
+  items: HeaderMenuItem[]
+}
+
 export interface PublicConfigs {
   site_basic: SiteBasicConfig
   blogger: BloggerConfig
   friendly_links: FriendlyLinksConfig
+  open_source_projects: OpenSourceProjectConfig[]
+  header_menu: HeaderMenuConfig
 }
 
 interface ConfigContextType {

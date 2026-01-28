@@ -5,6 +5,7 @@ import { getApiBaseUrl } from '@/lib/api'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ConfigProvider } from '@/contexts/ConfigContext'
 import LayoutWrapper from '@/components/LayoutWrapper'
+import InjectScripts from '@/components/InjectScripts'
 import AntdProvider from '@/components/AntdProvider'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${notoSansSC.variable}`}>
         <ThemeProvider>
           <ConfigProvider>
+            <InjectScripts />
             <AntdProvider>
               <LayoutWrapper>{children}</LayoutWrapper>
             </AntdProvider>

@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { apiGet, apiPut } from '@/lib/api'
-import { Card, Form, Input, Button, message, Collapse, Space, Select, InputNumber } from 'antd'
+import { Card, Form, Input, Button, message, Space, Select, InputNumber, Switch, Typography } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
-const { Panel } = Collapse
+const { Title, Paragraph } = Typography
 
 interface SiteBasicConfig {
   site_title: string
@@ -84,10 +84,16 @@ interface HeaderMenuConfig {
   items: HeaderMenuItem[]
 }
 
+interface BackupConfig {
+  enabled: boolean
+  interval_days: number
+}
+
 interface AllConfigs {
   site_basic: SiteBasicConfig
   blogger: BloggerConfig
   oss: OSSConfig
+  backup: BackupConfig
   email: EmailConfig
   llm: LLMConfig
   prompt: PromptConfig
@@ -95,6 +101,65 @@ interface AllConfigs {
   open_source_projects: OpenSourceProjectConfig[]
   header_menu: HeaderMenuConfig
 }
+
+interface ConfigSectionMeta {
+  key: string
+  label: string
+  description: string
+}
+
+const CONFIG_SECTIONS: ConfigSectionMeta[] = [
+  {
+    key: 'site_basic',
+    label: '网站基本配置',
+    description: '站点标题、副标题、SEO 描述、关键词、脚本等全局基础信息。',
+  },
+  {
+    key: 'blogger',
+    label: '个人博主配置',
+    description: '博主头像、个性签名以及邮箱 / 社交账号等联系方式展示。',
+  },
+  {
+    key: 'oss',
+    label: 'OSS 服务配置',
+    description: '对象存储访问密钥、区域、Bucket 与 Endpoint 等，用于上传图片 / 备份文件。',
+  },
+  {
+    key: 'backup',
+    label: '数据备份配置',
+    description: '开启定期数据库备份，并上传备份文件到配置好的 OSS 存储。',
+  },
+  {
+    key: 'email',
+    label: '邮箱配置',
+    description: 'SMTP 服务器、端口、账号和发件邮箱，用于发送注册 / 通知等系统邮件。',
+  },
+  {
+    key: 'llm',
+    label: 'LLM API 配置',
+    description: 'OpenAI 兼容的 LLM API Key、Base URL 和模型名称，用于文案润色等 AI 能力。',
+  },
+  {
+    key: 'prompt',
+    label: '提示词配置',
+    description: 'AI 文案润色所使用的系统提示词，会影响润色风格与语气。',
+  },
+  {
+    key: 'friendly_links',
+    label: '友链配置',
+    description: '管理博客首页展示的友情链接列表（名称、URL 与描述）。',
+  },
+  {
+    key: 'open_source_projects',
+    label: '开源项目配置',
+    description: '配置首页展示的个人开源项目卡片，包括名称、描述、GitHub 链接和封面图。',
+  },
+  {
+    key: 'header_menu',
+    label: '头部菜单项配置',
+    description: '自定义网站头部导航菜单的图标、名称与跳转地址（支持站内路径和外链）。',
+  },
+]
 
 const SOCIAL_TYPES = [
   { label: '邮箱', value: 'email' },
@@ -136,6 +201,7 @@ export default function ConfigPage() {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [activeKey, setActiveKey] = useState<string>('site_basic')
 
   useEffect(() => {
     fetchConfigs()
@@ -169,6 +235,10 @@ export default function ConfigPage() {
           oss_region: data.oss?.oss_region || '',
           oss_bucket_name: data.oss?.oss_bucket_name || '',
           oss_endpoint: data.oss?.oss_endpoint || '',
+        },
+        backup: {
+          enabled: data.backup?.enabled ?? false,
+          interval_days: data.backup?.interval_days ?? 7,
         },
         email: {
           smtp_host: data.email?.smtp_host || '',
@@ -234,7 +304,12 @@ export default function ConfigPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">系统配置</h1>
+        <div>
+          <h1 className="text-3xl font-bold">系统配置</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            左侧选择配置分类，右侧编辑详细配置项。保存后部分配置需要刷新页面或重启服务生效。
+          </p>
+        </div>
         <Button
           type="primary"
           icon={<SaveOutlined />}
@@ -246,11 +321,41 @@ export default function ConfigPage() {
         </Button>
       </div>
 
-      <Form form={form} layout="vertical" className="space-y-6">
-        <Collapse defaultActiveKey={['1', '2', '3', '4', '5', '6', '7', '8', '9']} ghost>
-          {/* 网站基本配置 */}
-          <Panel header="网站基本配置" key="1">
-            <Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* 左侧配置项列表 */}
+        <div className="md:col-span-1">
+          <Card size="small" title="配置分类" bodyStyle={{ padding: 0 }}>
+            <ul className="divide-y divide-gray-100">
+              {CONFIG_SECTIONS.map((section) => (
+                <li key={section.key}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveKey(section.key)}
+                    className={`w-full text-left px-4 py-3 focus:outline-none ${
+                      activeKey === section.key
+                        ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-gray-900">{section.label}</div>
+                    <div className="text-xs text-gray-500 mt-1">{section.description}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        {/* 右侧配置内容 */}
+        <div className="md:col-span-3">
+          <Form form={form} layout="vertical" className="space-y-6">
+            {/* 网站基本配置 */}
+            {activeKey === 'site_basic' && (
+              <Card>
+                <Title level={4}>网站基本配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  配置站点标题、副标题、SEO 描述与关键词，以及需要注入到页面的自定义脚本。
+                </Paragraph>
               <Form.Item
                 label="网站标题"
                 name={['site_basic', 'site_title']}
@@ -312,12 +417,16 @@ export default function ConfigPage() {
               >
                 <TextArea rows={4} placeholder="例如：<script>...</script> 或百度统计等代码" />
               </Form.Item>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 个人博主配置 */}
-          <Panel header="个人博主配置" key="2">
-            <Card>
+            {/* 个人博主配置 */}
+            {activeKey === 'blogger' && (
+              <Card>
+                <Title level={4}>个人博主配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  配置博客作者的头像、个性签名和多种社交方式，展示在站点显眼位置。
+                </Paragraph>
               <Form.Item
                 label="博主头像 URL"
                 name={['blogger', 'blogger_avatar']}
@@ -379,12 +488,16 @@ export default function ConfigPage() {
                   )}
                 </Form.List>
               </Form.Item>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* OSS服务配置 */}
-          <Panel header="OSS服务配置" key="3">
-            <Card>
+            {/* OSS服务配置 */}
+            {activeKey === 'oss' && (
+              <Card>
+                <Title level={4}>OSS 服务配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  配置对象存储服务（如 AWS S3、阿里云 OSS 等），用于存储图片、附件以及备份文件。
+                </Paragraph>
               <Form.Item
                 label="OSS类型"
                 name={['oss', 'oss_type']}
@@ -426,12 +539,40 @@ export default function ConfigPage() {
               >
                 <Input placeholder="OSS服务端点（可选）" />
               </Form.Item>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 邮箱配置 */}
-          <Panel header="邮箱配置" key="4">
-            <Card>
+            {/* 数据备份配置 */}
+            {activeKey === 'backup' && (
+              <Card>
+                <Title level={4}>数据备份配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  定期将数据库中的关键数据导出，并上传到配置好的 OSS 存储中，提升数据安全性。
+                </Paragraph>
+              <Form.Item
+                label="是否开启数据备份"
+                name={['backup', 'enabled']}
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+              <Form.Item
+                label="备份间隔（天）"
+                name={['backup', 'interval_days']}
+                rules={[{ required: true, message: '请输入备份间隔天数' }]}
+              >
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+              </Card>
+            )}
+
+            {/* 邮箱配置 */}
+            {activeKey === 'email' && (
+              <Card>
+                <Title level={4}>邮箱配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  配置 SMTP 服务，用于发送注册确认、通知提醒等系统邮件。
+                </Paragraph>
               <Form.Item
                 label="SMTP服务器"
                 name={['email', 'smtp_host']}
@@ -471,12 +612,16 @@ export default function ConfigPage() {
               >
                 <Input placeholder="例如：noreply@example.com" />
               </Form.Item>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* LLM API配置 */}
-          <Panel header="LLM API配置（OpenAI API规范）" key="5">
-            <Card>
+            {/* LLM API配置 */}
+            {activeKey === 'llm' && (
+              <Card>
+                <Title level={4}>LLM API 配置（OpenAI API 规范）</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  连接到符合 OpenAI API 规范的大语言模型服务，为文案润色等功能提供算力。
+                </Paragraph>
               <Form.Item
                 label="API Key"
                 name={['llm', 'llm_api_key']}
@@ -497,12 +642,16 @@ export default function ConfigPage() {
               >
                 <Input placeholder="例如：gpt-3.5-turbo" />
               </Form.Item>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 提示词配置 */}
-          <Panel header="提示词配置" key="6">
-            <Card>
+            {/* 提示词配置 */}
+            {activeKey === 'prompt' && (
+              <Card>
+                <Title level={4}>提示词配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  自定义 AI 润色的系统提示词，用于控制生成内容的角色、语气和风格。
+                </Paragraph>
               <Form.Item
                 label="文案润色系统提示词"
                 name={['prompt', 'polish_system_prompt']}
@@ -516,12 +665,16 @@ export default function ConfigPage() {
               <div className="text-sm text-gray-500 mt-2">
                 <p>提示：系统提示词会影响AI润色的风格和效果，建议根据你的需求进行调整。</p>
               </div>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 友链配置 */}
-          <Panel header="友链配置" key="7">
-            <Card>
+            {/* 友链配置 */}
+            {activeKey === 'friendly_links' && (
+              <Card>
+                <Title level={4}>友链配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  管理展示在站点上的友情链接列表，可为每个友链设置名称、链接和描述。
+                </Paragraph>
               <Form.List name={['friendly_links', 'links']}>
                 {(fields, { add, remove }) => (
                   <>
@@ -576,12 +729,16 @@ export default function ConfigPage() {
                   </>
                 )}
               </Form.List>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 首页开源项目配置 */}
-          <Panel header="首页开源项目配置（支持多个）" key="8">
-            <Card>
+            {/* 首页开源项目配置 */}
+            {activeKey === 'open_source_projects' && (
+              <Card>
+                <Title level={4}>首页开源项目配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  配置首页展示的个人开源项目卡片，突出重要项目和代码仓库。
+                </Paragraph>
               <Form.List name={['open_source_projects']}>
                 {(fields, { add, remove }) => (
                   <>
@@ -641,12 +798,16 @@ export default function ConfigPage() {
                   </>
                 )}
               </Form.List>
-            </Card>
-          </Panel>
+              </Card>
+            )}
 
-          {/* 首页头部菜单项配置 */}
-          <Panel header="首页头部菜单项配置" key="9">
-            <Card>
+            {/* 首页头部菜单项配置 */}
+            {activeKey === 'header_menu' && (
+              <Card>
+                <Title level={4}>首页头部菜单项配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  自定义网站头部导航栏的菜单项与图标，引导用户快速访问重要页面或外部链接。
+                </Paragraph>
               <p className="text-gray-500 text-sm mb-4">配置后将在网站头部导航展示，支持站内路径（如 /posts）或外链。</p>
               <Form.List name={['header_menu', 'items']}>
                 {(fields, { add, remove }) => (
@@ -705,10 +866,11 @@ export default function ConfigPage() {
                   </>
                 )}
               </Form.List>
-            </Card>
-          </Panel>
-        </Collapse>
-      </Form>
+              </Card>
+            )}
+          </Form>
+        </div>
+      </div>
     </div>
   )
 }

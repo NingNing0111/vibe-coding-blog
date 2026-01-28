@@ -9,7 +9,7 @@ from app.api.dependencies import get_current_admin
 from app.schemas.config import (
     ConfigCreate, ConfigUpdate, ConfigResponse, 
     ConfigBatchUpdate, AllConfigs, SiteBasicConfig, 
-    BloggerConfig, OSSConfig, EmailConfig, LLMConfig, PromptConfig, PublicConfigs,
+    BloggerConfig, OSSConfig, BackupConfig, EmailConfig, LLMConfig, PromptConfig, PublicConfigs,
     FriendlyLinksConfig, OpenSourceProjectConfig, HeaderMenuConfig, HeaderMenuItem
 )
 from app.models.config import Config
@@ -239,10 +239,29 @@ def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
         polish_system_prompt=configs.get("polish_system_prompt", "你是一个专业的文案编辑助手。"),
     )
 
+    # 备份配置
+    def _parse_bool(value: Any, default: bool = False) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        s = str(value).strip().lower()
+        if s in {"1", "true", "yes", "y", "on"}:
+            return True
+        if s in {"0", "false", "no", "n", "off"}:
+            return False
+        return default
+
+    backup = BackupConfig(
+        enabled=_parse_bool(configs.get("backup_enabled"), False),
+        interval_days=int(configs.get("backup_interval_days", "7") or 7),
+    )
+
     return AllConfigs(
         site_basic=_build_site_basic(configs),
         blogger=_build_blogger(configs),
         oss=oss,
+        backup=backup,
         email=email,
         llm=llm,
         prompt=prompt,
@@ -313,6 +332,10 @@ async def update_structured_configs(
     configs_dict["oss_region"] = configs_data.oss.oss_region
     configs_dict["oss_bucket_name"] = configs_data.oss.oss_bucket_name
     configs_dict["oss_endpoint"] = configs_data.oss.oss_endpoint
+
+    # 数据备份配置
+    configs_dict["backup_enabled"] = "true" if configs_data.backup.enabled else "false"
+    configs_dict["backup_interval_days"] = str(configs_data.backup.interval_days)
     
     # 邮箱配置
     configs_dict["smtp_host"] = configs_data.email.smtp_host

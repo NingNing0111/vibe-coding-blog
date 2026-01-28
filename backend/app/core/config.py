@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     # OpenAI / LLM
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    # 可选的 OSS 自定义 Endpoint（如阿里云、七牛等的兼容 S3 接口）
+    OSS_ENDPOINT: str = ""
 
     model_config = SettingsConfigDict(
         env_file=get_env_file_path(),
@@ -111,6 +113,7 @@ _OSS_TO_SETTINGS = {
     "oss_secret_access_key": "AWS_SECRET_ACCESS_KEY",
     "oss_region": "AWS_REGION",
     "oss_bucket_name": "S3_BUCKET_NAME",
+    "oss_endpoint": "OSS_ENDPOINT",
 }
 
 

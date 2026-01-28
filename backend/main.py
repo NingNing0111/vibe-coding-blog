@@ -7,6 +7,7 @@ import logging
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.v1 import api_router
+from app.services.backup_service import backup_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,23 @@ async def lifespan(app: FastAPI):
             else:
                 logger.error(f"数据库连接失败，已达到最大重试次数: {e}")
                 raise
-    
-    yield
-    # Shutdown
-    await engine.dispose()
-    logger.info("数据库连接已关闭")
+
+    # 启动备份调度后台任务
+    backup_task = asyncio.create_task(backup_scheduler_loop())
+
+    try:
+        yield
+    finally:
+        # 关闭备份调度任务
+        backup_task.cancel()
+        try:
+            await backup_task
+        except asyncio.CancelledError:
+            pass
+
+        # Shutdown
+        await engine.dispose()
+        logger.info("数据库连接已关闭")
 
 
 app = FastAPI(

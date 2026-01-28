@@ -61,6 +61,12 @@ class OSSConfig(BaseModel):
     oss_endpoint: str = ""
 
 
+class BackupConfig(BaseModel):
+    """数据备份配置"""
+    enabled: bool = False  # 是否开启数据备份
+    interval_days: int = 7  # 备份间隔天数
+
+
 class EmailConfig(BaseModel):
     """邮箱配置"""
     smtp_host: str = ""
@@ -119,6 +125,7 @@ class AllConfigs(BaseModel):
     site_basic: SiteBasicConfig
     blogger: BloggerConfig
     oss: OSSConfig
+    backup: BackupConfig = BackupConfig()
     email: EmailConfig
     llm: LLMConfig
     prompt: PromptConfig = PromptConfig()

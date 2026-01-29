@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { apiGet, apiPut } from '@/lib/api'
 import { Card, Form, Input, Button, message, Space, Select, InputNumber, Switch, Typography } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons'
@@ -202,6 +202,8 @@ export default function ConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeKey, setActiveKey] = useState<string>('site_basic')
+  /** 上次从服务端拉取的完整配置，用于保存时补齐未渲染的 Tab 字段（Ant Design 只包含当前挂载的 Form.Item） */
+  const lastFetchedConfigRef = useRef<AllConfigs | null>(null)
 
   useEffect(() => {
     fetchConfigs()
@@ -263,6 +265,7 @@ export default function ConfigPage() {
           items: data.header_menu?.items || [],
         },
       })
+      lastFetchedConfigRef.current = data
     } catch (error) {
       console.error('获取配置失败:', error)
       message.error('获取配置失败')
@@ -274,8 +277,17 @@ export default function ConfigPage() {
   const handleSubmit = async () => {
     try {
       setSaving(true)
-      const values = await form.validateFields()
-      await apiPut('/api/v1/config/structured/all', values)
+      // 先校验表单（仅校验当前已渲染/受控的字段）
+      await form.validateFields()
+      const full = lastFetchedConfigRef.current
+      if (!full) {
+        message.error('配置未加载完成，请刷新后重试')
+        return
+      }
+      // 仅当前 Tab 的 Form.Item 会被 getFieldsValue 收集，需与上次拉取的完整配置合并后提交
+      const values = form.getFieldsValue(true)
+      const payload: AllConfigs = { ...full, ...values }
+      await apiPut('/api/v1/config/structured/all', payload)
       message.success('配置保存成功！页面刷新后将生效')
       // 延迟刷新页面，让用户看到成功消息
       setTimeout(() => {

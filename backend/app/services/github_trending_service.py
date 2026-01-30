@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 from bs4 import BeautifulSoup
 from openai import OpenAI
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.database import AsyncSessionLocal
@@ -424,21 +424,26 @@ async def run_daily_summary_and_post(trend_date: date) -> bool:
 
     title = f"GitHub 每日热门仓库 · {trend_date.isoformat()}"
     slug_base = f"github-trending-{trend_date.isoformat()}"
-    slug = slug_base
     async with AsyncSessionLocal() as db:
+        # 当日已存在 GitHub 热点文章则跳过，避免重复生成（如手动执行两次或手动+定时同一天）
+        existing = await db.execute(
+            select(Post.id).where(
+                or_(
+                    Post.slug == slug_base,
+                    Post.slug.startswith(f"{slug_base}-"),
+                )
+            ).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            logger.info("当日（%s）已存在 GitHub 热点文章，跳过重复生成", trend_date.isoformat())
+            return True
+        slug = slug_base
         # 取第一个管理员作为作者
         r = await db.execute(select(User).where(User.role == UserRole.ADMIN).limit(1))
         author = r.scalar_one_or_none()
         if not author:
             logger.error("无管理员用户，无法创建每日热点文章")
             return False
-        idx = 0
-        while True:
-            r = await db.execute(select(Post).where(Post.slug == slug))
-            if r.scalar_one_or_none() is None:
-                break
-            idx += 1
-            slug = f"{slug_base}-{idx}"
         post = Post(
             title=title,
             slug=slug,

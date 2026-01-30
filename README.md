@@ -1,315 +1,116 @@
+# Vibe Coding Blog
 
-# 个人博客系统技术设计文档（React / Next.js 版本）
-
-## 1. 文档目的
-
-本文档用于说明个人博客系统的整体技术设计方案，明确系统架构、技术选型、核心模块、数据设计、缓存策略及部署方案，作为系统开发、实施和后续维护的技术依据。
+一个**自托管的个人博客系统**，基于 Next.js + FastAPI 构建，支持文章发布、评论互动、分类标签、媒体管理，并集成 **AI 文案润色**、**GitHub 热门仓库爬取与自动成文**、**定期全站备份**、**邮件订阅与通知**等能力，适合技术博客与知识沉淀。
 
 ---
 
-## 2. 系统背景与目标
+## ✨ 核心功能
 
-### 2.1 系统背景
+| 模块 | 说明 |
+|------|------|
+| **文章管理** | Markdown 编辑、草稿/发布、SEO 友好 slug、封面图、分类与多标签 |
+| **用户与认证** | 邮箱注册/登录、JWT（Access + Refresh Token）、bcrypt 密码加密 |
+| **评论系统** | 登录用户评论、树形回复、管理员审核、评论/回复邮件通知 |
+| **AI 润色** | 兼容 OpenAI API，流式返回，后台编辑时一键润色文章 |
+| **GitHub 热门** | 每日定时爬取 GitHub Trending，自动生成总结并可选发布为博客文章 |
+| **全站备份** | 可配置周期（天）的全站数据备份至本地或 S3 |
+| **媒体资源** | 封面/正文图/头像统一管理，支持 S3 直传，减轻后端压力 |
+| **配置中心** | 邮件、OSS、博客信息、站点头尾脚本、LLM 等可后台配置 |
+| **统计** | 文章与全站阅读量、评论量统计 |
+| **订阅与退订** | 邮件订阅与退订链接，便于通知读者 |
 
-随着个人内容创作和知识沉淀需求的增长，需要一个**可完全自主控制、支持用户互动、长期可演进**的博客系统。  
-现有第三方博客平台在数据控制、定制能力和 AI 能力集成方面存在明显限制，因此需要设计并实现一套**完全自托管的独立博客系统**。
-
-### 2.2 设计目标
-
-* 支持个人博客内容发布与管理  
-* 支持用户注册、登录与评论互动  
-* 支持分类与标签体系  
-* 支持图片、附件等对象存储  
-* 保证系统安全性、可维护性和可扩展性  
-* 架构清晰，避免过度设计  
-* 媒体资源统一管理  
-* 配置中心能力：
-  * 邮件配置
-  * OSS 服务配置
-  * 博客基本信息配置
-  * 网站头部 / 底部脚本配置
-  * LLM（大模型）配置
-* AI 文案润色：
-  * 兼容 OpenAI API
-  * 支持流式返回与前端实时渲染
-* 评论回复与通知系统：
-  * 所有评论通知管理员
-  * 用户评论被回复时邮件通知
-* 博客文章阅读量、评论量统计
-* 全站阅读量 / 评论量统计
-* 文件资源管理能力
+首次部署支持**初始化引导**：配置管理员账号、OSS、邮件、LLM 等，开箱即用。
 
 ---
 
-## 3. 技术选型
+## 🛠 技术栈
 
-### 3.1 前端技术栈
-
-| 技术            | 选型                                                 |
-| --------------- | ---------------------------------------------------- |
-| 框架            | React 18 + Next.js（App Router）                     |
-| 语言            | TypeScript                                           |
-| UI 样式         | Tailwind CSS                                         |
-| UI 组件库       | shadcn/ui                                            |
-| 渲染模式        | SSR / SSG / ISR / RSC 混合模式                       |
-| 状态管理        | React Context + Server Actions（必要时使用 Zustand） |
-| Markdown 编辑器 | @uiw/react-md-editor / tiptap                        |
-| HTTP 客户端     | fetch（Next.js 原生）                                |
-| 权限控制        | Middleware + Server Components                       |
+| 层级 | 技术 |
+|------|------|
+| **前端** | React 18、Next.js 14（App Router）、TypeScript、Tailwind CSS、Radix UI / Ant Design、Markdown 编辑器 |
+| **后端** | Python 3.11、FastAPI、SQLAlchemy 2.0（Async）、JWT、Alembic |
+| **数据与缓存** | PostgreSQL 15+、Redis 7+ |
+| **存储** | Amazon S3 兼容对象存储（boto3） |
+| **部署** | Docker + Docker Compose、Nginx 可选 |
 
 ---
 
-### 3.2 后端技术栈
-
-* 语言：Python 3.11
-* Web 框架：FastAPI
-* ORM：SQLAlchemy 2.0（Async）
-* 数据库驱动：asyncpg
-* 认证方式：JWT（Access Token + Refresh Token）
-* 数据迁移：Alembic
-* 对象存储 SDK：boto3
-
----
-
-### 3.3 数据与中间件
-
-* 关系型数据库：PostgreSQL 15+
-* 缓存系统：Redis
-* 对象存储：Amazon S3
-* Web 服务器 / 网关：Nginx
-
----
-
-## 4. 系统整体架构
+## 📁 项目结构
 
 ```
-
-Browser
-│
-▼
-Next.js Frontend
-(SSR / RSC / SSG / SPA)
-│  JWT
-▼
-FastAPI Backend
-│
-├── PostgreSQL（结构化数据）
-├── Redis（缓存 / 验证码 / 限流）
-└── Amazon S3（对象存储）
-
+vibe-coding-blog/
+├── frontend/          # Next.js 前端（SSR/SSG/RSC）
+├── backend/           # FastAPI 后端、API、服务与迁移
+├── nginx/             # Nginx 配置示例
+├── docs/              # 设计文档与部署说明
+├── docker-compose.yml # 一键部署
+└── .env.example       # 环境变量示例
 ```
 
 ---
 
-## 5. 系统角色与权限设计
+## 🚀 快速开始
 
-### 5.1 角色定义
+### 使用 Docker Compose（推荐）
 
-| 角色    | 描述               | 权限                                  |
-| ------- | ------------------ | ------------------------------------- |
-| ADMIN   | 系统管理员（唯一） | 发布 / 编辑文章，管理分类、评论、配置 |
-| USER    | 注册用户           | 登录、发表评论                        |
-| VISITOR | 访客               | 浏览文章                              |
+1. **克隆并进入项目**
 
-### 5.2 权限原则
+   ```bash
+   git clone <your-repo-url>
+   cd vibe-coding-blog
+   ```
 
-* 内容发布权限集中（单一管理员）
-* 评论功能需要登录
-* 不引入复杂 RBAC，仅基于角色判断
-* 前端通过 Middleware + 后端 JWT 双重校验
+2. **配置环境变量**
 
----
+   ```bash
+   cp .env.example .env
+   # 编辑 .env，至少将 SECRET_KEY 改为随机字符串（如 openssl rand -hex 32）
+   ```
 
-## 6. 功能模块设计
+3. **启动服务**
 
-### 6.1 博客文章模块
+   ```bash
+   docker-compose up -d
+   ```
 
-* 支持 Markdown 内容
-* 草稿（DRAFT）/ 发布（PUBLISHED）状态
-* SEO 友好 URL（slug）
-* 支持文章封面图
-* 支持 AI 文案润色（流式）
+4. **访问**
 
----
+   - 前端：<http://localhost:3000>
+   - 后端 API：<http://localhost:8000>
+   - API 文档：<http://localhost:8000/docs>
 
-### 6.2 分类与标签模块
+首次访问若未初始化，将进入 **Setup** 引导页，完成管理员与基础配置即可使用。
 
-* 分类（Category）
-  * 层级结构
-  * 每篇文章仅属于一个分类
-* 标签（Tag）
-  * 多对多关系
-  * 支持动态创建
+### 本地开发
 
----
+- **后端**：`backend` 目录下创建虚拟环境，安装 `requirements.txt`，配置根目录 `.env`，执行 `alembic upgrade head` 后 `uvicorn main:app --reload`。
+- **前端**：`frontend` 目录下 `pnpm install` 后 `pnpm dev`，并确保 `.env` 中 `NEXT_PUBLIC_API_URL` 指向本地后端（如 `http://localhost:8000`）。
 
-### 6.3 用户与认证模块
-
-* 邮箱注册 / 登录
-* bcrypt 密码加密存储
-* JWT 认证
-* Access Token + Refresh Token
-* Next.js Middleware 做前端访问拦截
+详见 [docs/README_SETUP.md](docs/README_SETUP.md)。
 
 ---
 
-### 6.4 评论模块
+## ⚙️ 环境变量说明
 
-* 登录用户可评论
-* 支持评论回复（树结构）
-* 管理员可删除任意评论
-* 评论触发邮件通知
+| 变量 | 说明 |
+|------|------|
+| `SECRET_KEY` | **必填**。JWT 等安全相关，建议使用 `openssl rand -hex 32` 生成 |
+| `POSTGRES_*` / `REDIS_*` | 数据库与 Redis 连接（有默认值） |
+| `NEXT_PUBLIC_API_URL` | 前端请求的后端地址；同域部署可设为 `/api` |
+| `NEXT_PUBLIC_SITE_ORIGIN` | 同域部署时填站点域名，供服务端请求用 |
+| `CORS_ORIGINS` | 允许的跨域来源，多域名逗号分隔 |
 
----
-
-### 6.5 文件与对象存储模块
-
-* 博客封面图
-* Markdown 内容图片
-* 用户头像
-* 后端统一生成 S3 上传凭证
-* 前端直传 S3，减少后端压力
+邮件、OSS、LLM、备份等可在**后台配置中心**或 `.env` 中按需配置，参见 `.env.example`。
 
 ---
 
-## 7. Redis 缓存设计（重点）
+## 📄 文档
 
-### 7.1 Redis 使用场景
-
-1. 邮箱注册验证码  
-2. 接口数据缓存  
-3. 限流与安全控制（预留）  
+- [PROJECT_DOC.md](docs/PROJECT_DOC.md) — 系统架构与模块设计
+- [README_SETUP.md](docs/README_SETUP.md) — 安装与部署详解
 
 ---
 
-### 7.2 邮箱注册验证码缓存
+## 📜 License
 
-**Key：**
-
-```
-
-email:verify:{email}
-
-```
-
-**Value：**
-
-```json
-{
-  "code": "123456",
-  "type": "register"
-}
-```
-
-* TTL：5 分钟
-* 校验成功后立即删除
-
----
-
-### 7.3 接口数据缓存
-
-适用接口：
-
-* 文章列表
-* 文章详情
-* 分类列表
-* 标签列表
-
-Key 示例：
-
-```
-post:list:page:{page}:size:{size}
-post:detail:{slug}
-category:list
-tag:list
-```
-
-缓存策略：
-
-* Cache Aside
-* 写操作后主动删除缓存
-* 允许短暂脏读
-
----
-
-## 8. 数据存储设计
-
-### 8.1 PostgreSQL 数据内容
-
-* 用户账户
-* 博客文章
-* 分类、标签
-* 评论数据
-
----
-
-### 8.2 Amazon S3 存储结构
-
-```
-blog-assets/
- ├── cover/
- ├── post/
- └── avatar/
-```
-
----
-
-## 9. 系统部署设计
-
-### 9.1 部署方式
-
-* Docker + Docker Compose
-* 单机部署即可满足需求
-
-### 9.2 服务组成
-
-* Next.js 前端服务
-* FastAPI 后端服务
-* PostgreSQL 数据库
-* Redis 缓存
-* Nginx 反向代理
-
----
-
-## 10. 安全设计
-
-* HTTPS
-* JWT 认证
-* 密码加密存储
-* 接口访问鉴权
-* 评论内容 XSS 过滤
-* 注册 / 登录接口限流（基于 Redis）
-
----
-
-## 11. 性能与可扩展性
-
-* SSR / SSG / ISR 提升首屏速度与 SEO
-* Redis 缓存热点数据
-* 对象存储减轻数据库压力
-* 模块化设计，便于扩展
-
----
-
-## 12. 未来扩展方向
-
-* 全文搜索 / 向量搜索
-* AI 知识问答
-* 知识图谱
-
----
-
-## 13. 首次搭建引导流程
-
-* 首次启动系统自动进入初始化配置页面
-* 配置管理员账户
-* 配置 OSS 服务
-* 配置邮箱服务（可选）
-* 配置 LLM 服务（可选）
-
----
-
-## 14. 设计总结
-
-本系统基于 React + Next.js + FastAPI 构建，遵循“简单、清晰、可演进”的设计原则，在满足个人博客核心需求的同时，为 AI 能力与未来功能扩展预留充足空间。
-
+按项目仓库所声明的许可证使用。

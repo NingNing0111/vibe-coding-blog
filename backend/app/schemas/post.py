@@ -12,6 +12,7 @@ class PostCreate(BaseModel):
     status: str = "DRAFT"
     category_ids: List[int] = []
     tag_ids: List[int] = []
+    notify_subscribers: Optional[bool] = True  # 发布时是否通知订阅用户，仅当 status=PUBLISHED 时有效
 
 
 class PostUpdate(BaseModel):
@@ -23,6 +24,7 @@ class PostUpdate(BaseModel):
     status: Optional[str] = None
     category_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
+    notify_subscribers: Optional[bool] = None  # 发布时是否通知订阅用户，仅当从草稿变为已发布时有效
 
 
 class TagResponse(BaseModel):

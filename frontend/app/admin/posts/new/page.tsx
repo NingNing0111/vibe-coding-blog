@@ -36,6 +36,7 @@ export default function NewPostPage() {
   const [excerpt, setExcerpt] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [status, setStatus] = useState('DRAFT')
+  const [notifySubscribers, setNotifySubscribers] = useState(true)
   const [categoryIds, setCategoryIds] = useState<number[]>([])
   const [tagIds, setTagIds] = useState<number[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -107,6 +108,7 @@ export default function NewPostPage() {
         excerpt: excerpt || null,
         cover_image: coverImage || null,
         status,
+        notify_subscribers: status === 'PUBLISHED' ? notifySubscribers : undefined,
         category_ids: categoryIds,
         tag_ids: tagIds,
       })
@@ -210,6 +212,20 @@ export default function NewPostPage() {
               <option value="PUBLISHED">已发布</option>
             </select>
           </div>
+          {status === 'PUBLISHED' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="notify-subscribers"
+                checked={notifySubscribers}
+                onChange={(e) => setNotifySubscribers(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label htmlFor="notify-subscribers" className="text-sm font-medium text-gray-700">
+                通知订阅用户
+              </label>
+            </div>
+          )}
         </div>
 
         <div>

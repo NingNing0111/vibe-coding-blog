@@ -91,6 +91,9 @@ async def update_user(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能禁用当前登录的管理员账户")
         user.is_active = body.is_active
 
+    if body.is_subscribed is not None:
+        user.is_subscribed = body.is_subscribed
+
     await db.commit()
     await db.refresh(user)
     return user

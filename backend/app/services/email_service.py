@@ -138,10 +138,17 @@ class EmailService:
         post_url: str,
         site_name: str,
         smtp_config: Optional[Dict[str, Any]] = None,
+        unsubscribe_url: Optional[str] = None,
     ) -> bool:
-        """发布新文章时通知用户。传入 smtp_config 时优先用数据库配置"""
+        """发布新文章时通知用户。传入 smtp_config 时优先用数据库配置。unsubscribe_url 用于取消订阅链接。"""
         subject = f"[{site_name}] 新文章：{post_title}"
         excerpt_html = f"<p>{post_excerpt}</p>" if post_excerpt else ""
+        unsubscribe_block = ""
+        if unsubscribe_url:
+            unsubscribe_block = (
+                f'<p style="margin-top:24px;font-size:12px;color:#999;">'
+                f'如不希望再收到新文章通知，请<a href="{unsubscribe_url}">点击此处取消订阅</a>。</p>'
+            )
         html_content = f"""
         <html>
           <body>
@@ -150,6 +157,7 @@ class EmailService:
             <h3>{post_title}</h3>
             {excerpt_html}
             <p><a href="{post_url}" style="display:inline-block;padding:8px 16px;background:#1890ff;color:#fff;text-decoration:none;border-radius:4px;">点击查看</a></p>
+            {unsubscribe_block}
           </body>
         </html>
         """

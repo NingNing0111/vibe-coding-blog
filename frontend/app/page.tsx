@@ -349,15 +349,22 @@ export default function Home() {
                   <Typography.Paragraph type="secondary" className="!mb-4 !text-sm !line-clamp-3">
                     {project.project_description || '一个持续打磨的开源项目，欢迎关注与参与。'}
                   </Typography.Paragraph>
-                  {project.github_url && (
-                    <div className="mt-auto">
-                      <a href={project.github_url} target="_blank" rel="noreferrer">
-                        <Button type="primary" icon={<GithubOutlined />}>
-                          访问 Github
-                        </Button>
-                      </a>
-                    </div>
-                  )}
+                  <div className="mt-auto pt-2">
+                    {(() => {
+                      const repoUrl =
+                        (project as { github_url?: string; githubUrl?: string }).github_url ||
+                        (project as { github_url?: string; githubUrl?: string }).githubUrl ||
+                        ''
+                      if (!repoUrl) return null
+                      return (
+                        <a href={repoUrl} target="_blank" rel="noreferrer">
+                          <Button type="primary" icon={<GithubOutlined />}>
+                            访问仓库
+                          </Button>
+                        </a>
+                      )
+                    })()}
+                  </div>
                 </Card>
               </Col>
             ))}

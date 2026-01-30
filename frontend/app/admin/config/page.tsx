@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { apiGet, apiPut } from '@/lib/api'
+import { apiGet, apiPut, apiPost } from '@/lib/api'
 import { Card, Form, Input, Button, message, Space, Select, InputNumber, Switch, Typography } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, PlayCircleOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
 const { Title, Paragraph } = Typography
@@ -90,6 +90,13 @@ interface BackupConfig {
   interval_days: number
 }
 
+interface GithubTrendingConfig {
+  enabled: boolean
+  project_summary_prompt: string
+  daily_summary_prompt: string
+  daily_summary_default_status: 'DRAFT' | 'PUBLISHED'
+}
+
 interface AllConfigs {
   site_basic: SiteBasicConfig
   blogger: BloggerConfig
@@ -98,6 +105,7 @@ interface AllConfigs {
   email: EmailConfig
   llm: LLMConfig
   prompt: PromptConfig
+  github_trending: GithubTrendingConfig
   friendly_links: FriendlyLinksConfig
   open_source_projects: OpenSourceProjectConfig[]
   header_menu: HeaderMenuConfig
@@ -146,6 +154,11 @@ const CONFIG_SECTIONS: ConfigSectionMeta[] = [
     description: 'AI 文案润色所使用的系统提示词，会影响润色风格与语气。',
   },
   {
+    key: 'github_trending',
+    label: 'Github 热门仓库配置',
+    description: '每日 9 点爬取 GitHub Trending，生成项目介绍与每日热点博客草稿/发布。',
+  },
+  {
     key: 'friendly_links',
     label: '友链配置',
     description: '管理博客首页展示的友情链接列表（名称、URL 与描述）。',
@@ -183,6 +196,9 @@ const OSS_TYPES = [
   { label: '其他', value: 'other' },
 ]
 
+const GITHUB_PROJECT_SUMMARY_PLACEHOLDER =
+  '例如：你是一个技术文档助手。根据以下 GitHub 仓库信息，写一段中文介绍（intro）... 仓库名: {name}，描述: {desc}，主要语言: {lang}。请只返回 JSON: {"intro": "..."}'
+
 const HEADER_MENU_ICONS = [
   { label: '无图标', value: '' },
   { label: '首页', value: 'HomeOutlined' },
@@ -202,6 +218,7 @@ export default function ConfigPage() {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [githubTrendingRunning, setGithubTrendingRunning] = useState(false)
   const [activeKey, setActiveKey] = useState<string>('site_basic')
   /** 上次从服务端拉取的完整配置，用于保存时补齐未渲染的 Tab 字段（Ant Design 只包含当前挂载的 Form.Item） */
   const lastFetchedConfigRef = useRef<AllConfigs | null>(null)
@@ -258,6 +275,12 @@ export default function ConfigPage() {
         },
         prompt: {
           polish_system_prompt: data.prompt?.polish_system_prompt || '你是一个专业的文案编辑助手。',
+        },
+        github_trending: {
+          enabled: data.github_trending?.enabled ?? false,
+          project_summary_prompt: data.github_trending?.project_summary_prompt || '',
+          daily_summary_prompt: data.github_trending?.daily_summary_prompt || '',
+          daily_summary_default_status: data.github_trending?.daily_summary_default_status || 'DRAFT',
         },
         friendly_links: {
           links: data.friendly_links?.links || [],
@@ -687,6 +710,79 @@ export default function ConfigPage() {
               <div className="text-sm text-gray-500 mt-2">
                 <p>提示：系统提示词会影响AI润色的风格和效果，建议根据你的需求进行调整。</p>
               </div>
+              </Card>
+            )}
+
+            {/* Github 热门仓库配置 */}
+            {activeKey === 'github_trending' && (
+              <Card>
+                <Title level={4}>Github 热门仓库配置</Title>
+                <Paragraph type="secondary" className="mb-4">
+                  开启后每日 9 点（UTC）自动爬取 GitHub Trending，生成 github_trending 与 github_trending_llm 数据，
+                  并用「每日热点项目总结提示词」生成一篇博客文章；文章状态可设为草稿或直接发布，发布时会通过邮件通知订阅用户。
+                </Paragraph>
+                <Form.Item
+                  label="是否开启 Github 热门仓库爬取"
+                  name={['github_trending', 'enabled']}
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="Github 项目总结提示词"
+                  name={['github_trending', 'project_summary_prompt']}
+                  tooltip="用于根据单个仓库信息生成项目介绍（intro），可包含占位符：{name}、{desc}、{lang}。留空使用默认提示词。"
+                >
+                  <TextArea rows={5} placeholder={GITHUB_PROJECT_SUMMARY_PLACEHOLDER} />
+                </Form.Item>
+                <Form.Item
+                  label="Github 每日热点项目总结提示词"
+                  name={['github_trending', 'daily_summary_prompt']}
+                  tooltip="用于将当日 trending 与 llm 数据总结成一篇完整博客文章。系统会在其后追加当日仓库数据。"
+                >
+                  <TextArea
+                    rows={5}
+                    placeholder="例如：请根据以下今日 GitHub 热门仓库数据，生成一篇完整的博客文章（Markdown），介绍今日热点项目，结构清晰、适合技术读者。"
+                  />
+                </Form.Item>
+                <Form.Item
+                  label="每日热点文章默认状态"
+                  name={['github_trending', 'daily_summary_default_status']}
+                  tooltip="自动生成的每日热点文章保存为草稿还是直接发布；若为发布，会向订阅用户发送邮件通知。"
+                >
+                  <Select
+                    options={[
+                      { label: '草稿', value: 'DRAFT' },
+                      { label: '发布', value: 'PUBLISHED' },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item label="手动执行">
+                  <Button
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    loading={githubTrendingRunning}
+                    onClick={async () => {
+                      try {
+                        setGithubTrendingRunning(true)
+                        const res = await apiPost<{ success: boolean; message: string }>(
+                          '/api/v1/config/github-trending/run',
+                          {}
+                        )
+                        message.success(res?.message ?? '执行成功')
+                      } catch (e) {
+                        message.error(e instanceof Error ? e.message : '执行失败')
+                      } finally {
+                        setGithubTrendingRunning(false)
+                      }
+                    }}
+                  >
+                    手动执行
+                  </Button>
+                  <span className="text-sm text-gray-500 ml-2">
+                    立即执行一次：爬取今日 Trending、写入数据并生成每日热点文章（耗时较长）
+                  </span>
+                </Form.Item>
               </Card>
             )}
 

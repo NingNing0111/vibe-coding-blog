@@ -65,3 +65,22 @@ def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+def create_unsubscribe_token(user_id: int) -> str:
+    """创建取消订阅令牌（用于邮件中的取消订阅链接，有效期 365 天）"""
+    to_encode = {"sub": str(user_id), "type": "unsubscribe"}
+    expire = datetime.utcnow() + timedelta(days=365)
+    to_encode["exp"] = expire
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+
+
+def verify_unsubscribe_token(token: str) -> Optional[int]:
+    """验证取消订阅令牌，返回 user_id，无效返回 None"""
+    payload = verify_token(token, token_type="unsubscribe")
+    if payload is None:
+        return None
+    try:
+        return int(payload.get("sub"))
+    except (TypeError, ValueError):
+        return None

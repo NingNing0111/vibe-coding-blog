@@ -134,3 +134,32 @@ async def get_llm_config(db: AsyncSession) -> Dict[str, str]:
         'llm_base_url': configs.get('llm_base_url', 'https://api.openai.com/v1'),
         'llm_model': configs.get('llm_model', 'gpt-3.5-turbo'),
     }
+
+
+def _parse_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    if s in {"1", "true", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+async def get_github_trending_config(db: AsyncSession) -> Dict[str, Any]:
+    """
+    获取 Github 热门仓库爬取与每日热点总结配置
+    
+    Returns:
+        配置字典：enabled, project_summary_prompt, daily_summary_prompt, daily_summary_default_status
+    """
+    configs = await get_config_dict(db)
+    return {
+        'github_trending_enabled': _parse_bool(configs.get('github_trending_enabled'), False),
+        'github_trending_project_summary_prompt': configs.get('github_trending_project_summary_prompt', ''),
+        'github_trending_daily_summary_prompt': configs.get('github_trending_daily_summary_prompt', ''),
+        'github_trending_daily_summary_default_status': configs.get('github_trending_daily_summary_default_status', 'DRAFT'),
+    }

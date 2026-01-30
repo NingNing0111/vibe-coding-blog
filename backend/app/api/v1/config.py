@@ -2,14 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Dict, Any
+from datetime import date
 import json
 
 from app.core.database import get_db
+from app.services.github_trending_service import run_crawl_and_save, run_daily_summary_and_post
 from app.api.dependencies import get_current_admin
 from app.schemas.config import (
-    ConfigCreate, ConfigUpdate, ConfigResponse, 
-    ConfigBatchUpdate, AllConfigs, SiteBasicConfig, 
-    BloggerConfig, OSSConfig, BackupConfig, EmailConfig, LLMConfig, PromptConfig, PublicConfigs,
+    ConfigCreate, ConfigUpdate, ConfigResponse,
+    ConfigBatchUpdate, AllConfigs, SiteBasicConfig,
+    BloggerConfig, OSSConfig, BackupConfig, EmailConfig, LLMConfig, PromptConfig,
+    GithubTrendingConfig, PublicConfigs,
     FriendlyLinksConfig, OpenSourceProjectConfig, HeaderMenuConfig, HeaderMenuItem
 )
 from app.models.config import Config
@@ -185,7 +188,8 @@ def _build_friendly_links(configs: Dict[str, Any]) -> FriendlyLinksConfig:
 
 
 def _build_open_source_projects(configs: Dict[str, Any]) -> List[OpenSourceProjectConfig]:
-    """构建开源项目列表，数据以 JSON 字符串形式存储在 open_source_projects 配置键中"""
+    """构建开源项目列表，数据以 JSON 字符串形式存储在 open_source_projects 配置键中。
+    兼容 snake_case 与 camelCase 键名，确保 github_url 等字段正确解析。"""
     projects: List[OpenSourceProjectConfig] = []
     try:
         raw = configs.get("open_source_projects")
@@ -194,7 +198,13 @@ def _build_open_source_projects(configs: Dict[str, Any]) -> List[OpenSourceProje
             if isinstance(data, list):
                 for item in data:
                     if isinstance(item, dict):
-                        projects.append(OpenSourceProjectConfig(**item))
+                        normalized = {
+                            "project_name": item.get("project_name") or item.get("projectName") or "",
+                            "project_description": item.get("project_description") or item.get("projectDescription") or "",
+                            "github_url": (item.get("github_url") or item.get("githubUrl") or "").strip(),
+                            "cover_image": item.get("cover_image") or item.get("coverImage") or "",
+                        }
+                        projects.append(OpenSourceProjectConfig(**normalized))
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
     return projects
@@ -210,6 +220,19 @@ def _build_header_menu(configs: Dict[str, Any]) -> HeaderMenuConfig:
     except (json.JSONDecodeError, TypeError):
         pass
     return HeaderMenuConfig(items=items)
+
+
+def _parse_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    if s in {"1", "true", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
 
 
 def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
@@ -240,19 +263,14 @@ def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
         polish_system_prompt=configs.get("polish_system_prompt", "你是一个专业的文案编辑助手。"),
     )
 
-    # 备份配置
-    def _parse_bool(value: Any, default: bool = False) -> bool:
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return value
-        s = str(value).strip().lower()
-        if s in {"1", "true", "yes", "y", "on"}:
-            return True
-        if s in {"0", "false", "no", "n", "off"}:
-            return False
-        return default
+    github_trending = GithubTrendingConfig(
+        enabled=_parse_bool(configs.get("github_trending_enabled"), False),
+        project_summary_prompt=configs.get("github_trending_project_summary_prompt", ""),
+        daily_summary_prompt=configs.get("github_trending_daily_summary_prompt", ""),
+        daily_summary_default_status=configs.get("github_trending_daily_summary_default_status", "DRAFT"),
+    )
 
+    # 备份配置
     backup = BackupConfig(
         enabled=_parse_bool(configs.get("backup_enabled"), False),
         interval_days=int(configs.get("backup_interval_days", "7") or 7),
@@ -266,6 +284,7 @@ def _build_all_configs(configs: Dict[str, Any]) -> AllConfigs:
         email=email,
         llm=llm,
         prompt=prompt,
+        github_trending=github_trending,
         friendly_links=_build_friendly_links(configs),
         open_source_projects=_build_open_source_projects(configs),
         header_menu=_build_header_menu(configs),
@@ -353,7 +372,13 @@ async def update_structured_configs(
     
     # 提示词配置
     configs_dict["polish_system_prompt"] = configs_data.prompt.polish_system_prompt
-    
+
+    # Github 热门仓库配置
+    configs_dict["github_trending_enabled"] = "true" if configs_data.github_trending.enabled else "false"
+    configs_dict["github_trending_project_summary_prompt"] = configs_data.github_trending.project_summary_prompt
+    configs_dict["github_trending_daily_summary_prompt"] = configs_data.github_trending.daily_summary_prompt
+    configs_dict["github_trending_daily_summary_default_status"] = configs_data.github_trending.daily_summary_default_status
+
     # 友链配置
     configs_dict["friendly_links"] = json.dumps([link.model_dump() for link in configs_data.friendly_links.links], ensure_ascii=False)
 
@@ -388,3 +413,32 @@ async def update_structured_configs(
     result = await db.execute(select(Config))
     configs = {config.key: config.value for config in result.scalars().all()}
     return _build_all_configs(configs)
+
+
+@router.post("/github-trending/run")
+async def run_github_trending_manual(
+    current_user: User = Depends(get_current_admin),
+):
+    """手动执行一次 Github 热门仓库任务：爬取 trending、写入数据、生成每日热点文章（仅管理员）"""
+    today = date.today()
+    try:
+        ok1 = await run_crawl_and_save(today)
+        if not ok1:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="爬取或保存 GitHub Trending 数据失败",
+            )
+        ok2 = await run_daily_summary_and_post(today)
+        if not ok2:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="生成每日热点文章失败",
+            )
+        return {"success": True, "message": f"已执行今日（{today.isoformat()}）Github 热门仓库任务"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

@@ -39,6 +39,7 @@ interface UserItem {
   avatar: string | null
   role: string
   is_active: boolean
+  is_subscribed: boolean
   created_at: string
 }
 
@@ -104,6 +105,7 @@ export default function AdminUsersPage() {
       username: record.username,
       role: record.role,
       is_active: record.is_active,
+      is_subscribed: record.is_subscribed,
     })
     setModalVisible(true)
   }
@@ -122,6 +124,7 @@ export default function AdminUsersPage() {
         username: values.username,
         role: values.role,
         is_active: values.is_active,
+        is_subscribed: values.is_subscribed,
       })
       message.success('更新成功')
       handleCancel()
@@ -178,6 +181,15 @@ export default function AdminUsersPage() {
       width: 90,
       render: (is_active: boolean) => (
         <Tag color={is_active ? 'green' : 'red'}>{is_active ? '启用' : '禁用'}</Tag>
+      ),
+    },
+    {
+      title: '订阅',
+      dataIndex: 'is_subscribed',
+      key: 'is_subscribed',
+      width: 80,
+      render: (is_subscribed: boolean) => (
+        <Tag color={is_subscribed ? 'blue' : 'default'}>{is_subscribed ? '已订阅' : '未订阅'}</Tag>
       ),
     },
     {
@@ -312,6 +324,15 @@ export default function AdminUsersPage() {
               options={[
                 { value: true, label: '启用' },
                 { value: false, label: '禁用' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="订阅新文章邮件" name="is_subscribed" rules={[{ required: true }]}>
+            <Select
+              placeholder="是否订阅"
+              options={[
+                { value: true, label: '已订阅' },
+                { value: false, label: '未订阅' },
               ]}
             />
           </Form.Item>

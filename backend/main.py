@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.v1 import api_router
 from app.services.backup_service import backup_scheduler_loop
+from app.services.github_trending_service import github_trending_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,8 @@ async def lifespan(app: FastAPI):
 
     # 启动备份调度后台任务
     backup_task = asyncio.create_task(backup_scheduler_loop())
+    # 启动 Github 热门仓库每日 9 点调度任务
+    github_trending_task = asyncio.create_task(github_trending_scheduler_loop())
 
     try:
         yield
@@ -43,6 +46,12 @@ async def lifespan(app: FastAPI):
         backup_task.cancel()
         try:
             await backup_task
+        except asyncio.CancelledError:
+            pass
+        # 关闭 Github 热门仓库调度任务
+        github_trending_task.cancel()
+        try:
+            await github_trending_task
         except asyncio.CancelledError:
             pass
 

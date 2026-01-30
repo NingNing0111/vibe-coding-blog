@@ -21,6 +21,7 @@ class User(Base):
     avatar = Column(String, nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_subscribed = Column(Boolean, default=True, nullable=False)  # 是否订阅新文章邮件通知
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

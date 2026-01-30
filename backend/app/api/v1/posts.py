@@ -18,23 +18,33 @@ from app.models.category import Category
 from app.models.tag import Tag
 from app.models.comment import Comment
 from app.services.email_service import email_service
+from app.core.security import create_unsubscribe_token
 import json
 import math
 
 
 async def _send_new_post_notification_emails(
-    to_emails: List[str],
+    subscribers: List[tuple],
     post_title: str,
     post_excerpt: Optional[str],
     post_url: str,
     site_title: str,
+    site_url: str,
     smtp_config: dict,
 ) -> None:
-    """后台任务：向多个邮箱发送新文章发布通知。"""
-    for to_email in to_emails:
-        if to_email:
+    """后台任务：向已订阅用户发送新文章发布通知，每封邮件带取消订阅链接。subscribers: [(email, user_id), ...]"""
+    for to_email, user_id in subscribers:
+        if to_email and user_id:
+            token = create_unsubscribe_token(user_id)
+            unsubscribe_url = f"{site_url.rstrip('/')}/unsubscribe?token={token}"
             await email_service.send_new_post_notification(
-                to_email, post_title, post_excerpt, post_url, site_title, smtp_config=smtp_config
+                to_email,
+                post_title,
+                post_excerpt,
+                post_url,
+                site_title,
+                smtp_config=smtp_config,
+                unsubscribe_url=unsubscribe_url,
             )
 
 router = APIRouter()
@@ -359,19 +369,30 @@ async def create_post(
     # 清除相关缓存
     await delete_cache_pattern("post:list:*")
     
-    # 发布时向所有活跃用户发送新文章通知邮件（后台任务）
-    if post.status == PostStatus.PUBLISHED.value:
+    # 发布且勾选通知订阅用户时，向已订阅的活跃用户发送新文章通知邮件（后台任务）
+    notify = getattr(post_data, "notify_subscribers", True)
+    if post.status == PostStatus.PUBLISHED.value and notify:
         email_config = await get_email_config(db)
         site_basic = await get_site_basic_config(db)
         site_url = (site_basic.get("site_url") or "").strip().rstrip("/")
         site_title = site_basic.get("site_title") or "博客"
         post_url = f"{site_url}/posts/{post.slug}" if site_url else ""
         if post_url:
-            result = await db.execute(select(User.email).where(User.is_active == True))
-            to_emails = [row[0] for row in result.all()]
+            result = await db.execute(
+                select(User.email, User.id).where(
+                    User.is_active == True, User.is_subscribed == True
+                )
+            )
+            subscribers = [(row[0], row[1]) for row in result.all()]
             asyncio.create_task(
                 _send_new_post_notification_emails(
-                    to_emails, post.title, post.excerpt, post_url, site_title, email_config
+                    subscribers,
+                    post.title,
+                    post.excerpt,
+                    post_url,
+                    site_title,
+                    site_url,
+                    email_config,
                 )
             )
     
@@ -453,23 +474,29 @@ async def update_post(
     await delete_cache_pattern("post:list:*")
     await delete_cache(f"post:detail:{updated_post.slug}")
     
-    # 若刚从草稿变为已发布，向所有活跃用户发送新文章通知邮件（后台任务）
-    if newly_published:
+    # 若刚从草稿变为已发布且勾选通知订阅用户，向已订阅的活跃用户发送新文章通知邮件（后台任务）
+    notify = getattr(post_data, "notify_subscribers", True)
+    if newly_published and notify:
         email_config = await get_email_config(db)
         site_basic = await get_site_basic_config(db)
         site_url = (site_basic.get("site_url") or "").strip().rstrip("/")
         site_title = site_basic.get("site_title") or "博客"
         post_url = f"{site_url}/posts/{updated_post.slug}" if site_url else ""
         if post_url:
-            result = await db.execute(select(User.email).where(User.is_active == True))
-            to_emails = [row[0] for row in result.all()]
+            result = await db.execute(
+                select(User.email, User.id).where(
+                    User.is_active == True, User.is_subscribed == True
+                )
+            )
+            subscribers = [(row[0], row[1]) for row in result.all()]
             asyncio.create_task(
                 _send_new_post_notification_emails(
-                    to_emails,
+                    subscribers,
                     updated_post.title,
                     updated_post.excerpt,
                     post_url,
                     site_title,
+                    site_url,
                     email_config,
                 )
             )

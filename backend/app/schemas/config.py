@@ -89,6 +89,14 @@ class PromptConfig(BaseModel):
     polish_system_prompt: str = "你是一个专业的文案编辑助手。"
 
 
+class GithubTrendingConfig(BaseModel):
+    """Github 热门仓库爬取与每日热点总结配置"""
+    enabled: bool = False  # 是否开启 Github 热门仓库爬取
+    project_summary_prompt: str = ""  # 用于生成单个项目介绍的提示词
+    daily_summary_prompt: str = ""  # 用于将今日热点仓库总结成一篇博客的提示词
+    daily_summary_default_status: str = "DRAFT"  # 每日热点文章默认状态：DRAFT 或 PUBLISHED
+
+
 class FriendlyLink(BaseModel):
     """友链配置"""
     name: str
@@ -130,8 +138,8 @@ class AllConfigs(BaseModel):
     email: EmailConfig
     llm: LLMConfig
     prompt: PromptConfig = PromptConfig()
+    github_trending: GithubTrendingConfig = GithubTrendingConfig()
     friendly_links: FriendlyLinksConfig = FriendlyLinksConfig()
-    # 初始化时可以不传下面两个配置，使用空配置作为默认值
     open_source_projects: List[OpenSourceProjectConfig] = []
     header_menu: HeaderMenuConfig = HeaderMenuConfig()
 

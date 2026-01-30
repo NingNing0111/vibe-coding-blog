@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     avatar: Optional[str] = None
     role: str
     is_active: bool
+    is_subscribed: bool = True
     created_at: datetime
 
     class Config:
@@ -29,10 +30,11 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """管理员更新用户（用户名、角色、启用状态）"""
+    """管理员更新用户（用户名、角色、启用状态、订阅状态）"""
     username: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    is_subscribed: Optional[bool] = None
 
 
 class TokenResponse(BaseModel):

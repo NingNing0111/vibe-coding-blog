@@ -1,6 +1,7 @@
 import random
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -11,7 +12,8 @@ from app.core.security import (
     get_password_hash,
     create_access_token,
     create_refresh_token,
-    verify_token
+    verify_token,
+    verify_unsubscribe_token,
 )
 from app.core.redis_client import get_redis, set_cache, get_cache, delete_cache
 from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse
@@ -163,3 +165,54 @@ async def refresh_token(refresh_token: str):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
     return current_user
+
+
+@router.get("/unsubscribe")
+async def get_unsubscribe_info(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """根据取消订阅 token 返回邮箱信息，供前端确认页展示（不修改订阅状态）"""
+    user_id = verify_unsubscribe_token(token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="链接无效或已过期，请使用邮件中的最新链接",
+        )
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+    return {"email": user.email, "username": user.username}
+
+
+class UnsubscribeRequest(BaseModel):
+    token: str
+
+
+@router.post("/unsubscribe")
+async def unsubscribe(
+    body: UnsubscribeRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """根据取消订阅 token 将用户设为未订阅，不再接收新文章邮件"""
+    token = body.token
+    user_id = verify_unsubscribe_token(token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="链接无效或已过期，请使用邮件中的最新链接",
+        )
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+    user.is_subscribed = False
+    await db.commit()
+    return {"message": "已成功取消订阅，您将不再收到新文章通知邮件。"}

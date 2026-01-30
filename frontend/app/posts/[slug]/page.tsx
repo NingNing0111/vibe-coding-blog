@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { Calendar, Eye, MessageCircle, User, Tag, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import MarkdownContent from '@/components/MarkdownContent'
+import ArticleTOC from '@/components/ArticleTOC'
 
 const CommentsSection = dynamic(() => import('@/components/CommentsSection'), { ssr: false })
 
@@ -48,7 +49,7 @@ export default async function PostPage({ params }: { params: { slug: string } })
   }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <Link
           href="/posts"
@@ -58,6 +59,14 @@ export default async function PostPage({ params }: { params: { slug: string } })
           <span className="text-sm">返回文章列表</span>
         </Link>
 
+        {/* 文章目录 - 移动端显示在上方 */}
+        <div className="lg:hidden mb-6">
+          <ArticleTOC content={post.content} />
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* 正文区域 */}
+          <div className="flex-1 min-w-0">
         <article className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 overflow-hidden shadow-lg dark:shadow-xl">
           {post.cover_image && (
             <div className="relative h-96 w-full overflow-hidden bg-slate-100 dark:bg-gray-700">
@@ -148,6 +157,13 @@ export default async function PostPage({ params }: { params: { slug: string } })
       <div className="mt-10">
         <CommentsSection postId={post.id} />
       </div>
+          </div>
+
+          {/* 文章目录 - 桌面端右侧粘性导航 */}
+          <aside className="hidden lg:block shrink-0 w-56 self-start sticky top-24">
+            <ArticleTOC content={post.content} />
+          </aside>
+        </div>
     </main>
   )
 }

@@ -1,8 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { visit } from 'unist-util-visit'
+import type { Root, Heading } from 'mdast'
+import type { Plugin } from 'unified'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -10,6 +13,19 @@ import { Copy, Check } from 'lucide-react'
 
 interface MarkdownContentProps {
   content: string
+}
+
+/** 在解析阶段为 h2/h3 分配稳定 id，服务端与客户端一致，避免 hydration 不匹配 */
+const remarkHeadingId: Plugin<[], Root> = () => (tree) => {
+  let index = 0
+  visit(tree, 'heading', (node: Heading) => {
+    if (node.depth !== 2 && node.depth !== 3) return
+    if (!node.data) node.data = {}
+    ;(node.data as Record<string, unknown>).hProperties = {
+      ...((node.data as Record<string, unknown>).hProperties as object),
+      id: `heading-${index++}`,
+    }
+  })
 }
 
 function CodeBlock({ children, language, theme, codeStyle }: { children: string; language: string; theme: string; codeStyle: any }) {
@@ -88,11 +104,29 @@ function CodeBlock({ children, language, theme, codeStyle }: { children: string;
 export default function MarkdownContent({ content }: MarkdownContentProps) {
   const { theme } = useTheme()
   const codeStyle = theme === 'dark' ? vscDarkPlus : oneLight
-  
+  const remarkPlugins = useMemo(() => [remarkGfm, remarkHeadingId], [])
+
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={remarkPlugins}
       components={{
+        h2({ node, children, ...props }) {
+          // id 由 remarkHeadingId 写入 mdast，remark-rehype 转为 hast.properties
+          const id = (node as { properties?: { id?: string } })?.properties?.id
+          return (
+            <h2 id={id} className="scroll-mt-16" {...props}>
+              {children}
+            </h2>
+          )
+        },
+        h3({ node, children, ...props }) {
+          const id = (node as { properties?: { id?: string } })?.properties?.id
+          return (
+            <h3 id={id} className="scroll-mt-16" {...props}>
+              {children}
+            </h3>
+          )
+        },
         code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode; [key: string]: any }) {
           const match = /language-(\w+)/.exec(className || '')
           const language = match ? match[1] : ''

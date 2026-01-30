@@ -71,7 +71,7 @@ export default function InjectScripts() {
       document.head.querySelector(`[${HEAD_MARKER}]`)?.remove()
       document.body.querySelector(`[${FOOTER_MARKER}]`)?.remove()
     }
-  }, [config?.site_basic?.site_head_script, config?.site_basic?.site_footer_script])
+  }, [config?.site_basic])
 
   return null
 }

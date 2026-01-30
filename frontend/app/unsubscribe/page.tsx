@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, Button, Typography, Space, Alert, Spin } from 'antd'
@@ -8,7 +8,7 @@ import { apiGet, apiPost } from '@/lib/api'
 
 const { Title, Paragraph, Text } = Typography
 
-export default function UnsubscribePage() {
+function UnsubscribeContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
 
@@ -146,5 +146,27 @@ export default function UnsubscribePage() {
         </Space>
       </Card>
     </div>
+  )
+}
+
+export default function UnsubscribePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: '60vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <Spin size="large" tip="加载中…" />
+        </div>
+      }
+    >
+      <UnsubscribeContent />
+    </Suspense>
   )
 }

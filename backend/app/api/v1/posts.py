@@ -4,9 +4,11 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import datetime
+import asyncio
 
 from app.core.database import get_db
 from app.core.redis_client import get_cache, set_cache, delete_cache_pattern, delete_cache
+from app.core.config_loader import get_email_config, get_site_basic_config
 from app.api.dependencies import get_current_user, get_current_admin, get_optional_admin
 from app.schemas.post import PostCreate, PostUpdate, PostResponse, PostListResponse
 from app.schemas.pagination import PaginatedResponse
@@ -15,8 +17,25 @@ from app.models.user import User
 from app.models.category import Category
 from app.models.tag import Tag
 from app.models.comment import Comment
+from app.services.email_service import email_service
 import json
 import math
+
+
+async def _send_new_post_notification_emails(
+    to_emails: List[str],
+    post_title: str,
+    post_excerpt: Optional[str],
+    post_url: str,
+    site_title: str,
+    smtp_config: dict,
+) -> None:
+    """后台任务：向多个邮箱发送新文章发布通知。"""
+    for to_email in to_emails:
+        if to_email:
+            await email_service.send_new_post_notification(
+                to_email, post_title, post_excerpt, post_url, site_title, smtp_config=smtp_config
+            )
 
 router = APIRouter()
 
@@ -340,6 +359,22 @@ async def create_post(
     # 清除相关缓存
     await delete_cache_pattern("post:list:*")
     
+    # 发布时向所有活跃用户发送新文章通知邮件（后台任务）
+    if post.status == PostStatus.PUBLISHED.value:
+        email_config = await get_email_config(db)
+        site_basic = await get_site_basic_config(db)
+        site_url = (site_basic.get("site_url") or "").strip().rstrip("/")
+        site_title = site_basic.get("site_title") or "博客"
+        post_url = f"{site_url}/posts/{post.slug}" if site_url else ""
+        if post_url:
+            result = await db.execute(select(User.email).where(User.is_active == True))
+            to_emails = [row[0] for row in result.all()]
+            asyncio.create_task(
+                _send_new_post_notification_emails(
+                    to_emails, post.title, post.excerpt, post_url, site_title, email_config
+                )
+            )
+    
     return post
 
 
@@ -387,10 +422,12 @@ async def update_post(
         post.excerpt = post_data.excerpt
     if post_data.cover_image is not None:
         post.cover_image = post_data.cover_image
+    newly_published = False
     if post_data.status is not None:
         post.status = post_data.status
         if post_data.status == PostStatus.PUBLISHED.value and not post.published_at:
             post.published_at = datetime.utcnow()
+            newly_published = True
     if post_data.category_ids is not None:
         result = await db.execute(select(Category).where(Category.id.in_(post_data.category_ids)))
         post.categories = result.scalars().all()
@@ -415,6 +452,27 @@ async def update_post(
     # 清除相关缓存
     await delete_cache_pattern("post:list:*")
     await delete_cache(f"post:detail:{updated_post.slug}")
+    
+    # 若刚从草稿变为已发布，向所有活跃用户发送新文章通知邮件（后台任务）
+    if newly_published:
+        email_config = await get_email_config(db)
+        site_basic = await get_site_basic_config(db)
+        site_url = (site_basic.get("site_url") or "").strip().rstrip("/")
+        site_title = site_basic.get("site_title") or "博客"
+        post_url = f"{site_url}/posts/{updated_post.slug}" if site_url else ""
+        if post_url:
+            result = await db.execute(select(User.email).where(User.is_active == True))
+            to_emails = [row[0] for row in result.all()]
+            asyncio.create_task(
+                _send_new_post_notification_emails(
+                    to_emails,
+                    updated_post.title,
+                    updated_post.excerpt,
+                    post_url,
+                    site_title,
+                    email_config,
+                )
+            )
     
     return updated_post
 

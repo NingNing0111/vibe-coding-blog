@@ -45,12 +45,13 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { key: '/admin', label: '仪表盘', icon: <DashboardOutlined />, path: '/admin' },
+  { key: '/admin/users', label: '用户管理', icon: <UserOutlined />, path: '/admin/users' },
   { key: '/admin/posts', label: '文章管理', icon: <FileTextOutlined />, path: '/admin/posts' },
   { key: '/admin/categories', label: '分类管理', icon: <FolderOutlined />, path: '/admin/categories' },
   { key: '/admin/tags', label: '标签管理', icon: <TagOutlined />, path: '/admin/tags' },
-  { key: '/admin/comments', label: '评论管理', icon: <CommentOutlined />, path: '/admin/comments' },
   { key: '/admin/media', label: '媒体资源', icon: <PictureOutlined />, path: '/admin/media' },
-  { key: '/admin/config', label: '配置管理', icon: <SettingOutlined />, path: '/admin/config' },
+  { key: '/admin/comments', label: '评论管理', icon: <CommentOutlined />, path: '/admin/comments' },
+  { key: '/admin/config', label: '配置中心', icon: <SettingOutlined />, path: '/admin/config' },
 ]
 
 // 路由到标签的映射
@@ -63,7 +64,8 @@ const routeLabels: Record<string, string> = {
   '/admin/tags': '标签管理',
   '/admin/comments': '评论管理',
   '/admin/media': '媒体资源',
-  '/admin/config': '配置管理',
+  '/admin/users': '用户管理',
+  '/admin/config': '配置中心',
 }
 
 export default function AdminLayout({

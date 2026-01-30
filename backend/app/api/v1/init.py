@@ -89,6 +89,7 @@ async def setup_system(
     configs_dict["site_keywords"] = setup_data.configs.site_basic.site_keywords
     configs_dict["site_logo"] = setup_data.configs.site_basic.site_logo
     configs_dict["site_copyright"] = setup_data.configs.site_basic.site_copyright
+    configs_dict["site_url"] = setup_data.configs.site_basic.site_url
     
     # 博主配置
     configs_dict["blogger_avatar"] = setup_data.configs.blogger.blogger_avatar

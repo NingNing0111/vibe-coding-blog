@@ -28,6 +28,13 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class UserUpdate(BaseModel):
+    """管理员更新用户（用户名、角色、启用状态）"""
+    username: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

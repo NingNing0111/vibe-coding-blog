@@ -150,6 +150,7 @@ def _build_site_basic(configs: Dict[str, Any]) -> SiteBasicConfig:
         site_keywords=configs.get("site_keywords", ""),
         site_logo=configs.get("site_logo", ""),
         site_copyright=configs.get("site_copyright", ""),
+        site_url=configs.get("site_url", ""),
         site_head_script=configs.get("site_head_script", ""),
         site_footer_script=configs.get("site_footer_script", ""),
     )
@@ -317,6 +318,7 @@ async def update_structured_configs(
     configs_dict["site_keywords"] = configs_data.site_basic.site_keywords
     configs_dict["site_logo"] = configs_data.site_basic.site_logo
     configs_dict["site_copyright"] = configs_data.site_basic.site_copyright
+    configs_dict["site_url"] = configs_data.site_basic.site_url
     configs_dict["site_head_script"] = configs_data.site_basic.site_head_script
     configs_dict["site_footer_script"] = configs_data.site_basic.site_footer_script
     

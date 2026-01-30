@@ -60,6 +60,7 @@ async def get_site_basic_config(db: AsyncSession) -> Dict[str, str]:
         'site_keywords': configs.get('site_keywords', ''),
         'site_logo': configs.get('site_logo', ''),
         'site_copyright': configs.get('site_copyright', ''),
+        'site_url': configs.get('site_url', ''),
     }
 
 

@@ -40,6 +40,7 @@ class SiteBasicConfig(BaseModel):
     site_keywords: str = ""
     site_logo: str = ""
     site_copyright: str = ""
+    site_url: str = ""  # 站点地址，用于新文章通知邮件中的链接
     site_head_script: str = ""
     site_footer_script: str = ""
 

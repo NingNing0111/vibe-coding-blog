@@ -21,6 +21,7 @@ interface SiteBasicConfig {
   site_keywords: string
   site_logo: string
   site_copyright: string
+  site_url: string
 }
 
 interface BloggerSocial {
@@ -158,6 +159,7 @@ export default function SetupPage() {
             site_keywords: values.site_keywords ?? '',
             site_logo: values.site_logo ?? '',
             site_copyright: values.site_copyright ?? '',
+            site_url: values.site_url ?? process.env.NEXT_PUBLIC_SITE_ORIGIN ?? '',
           },
           blogger: {
             blogger_avatar: values.blogger_avatar ?? '',
@@ -363,6 +365,14 @@ export default function SetupPage() {
                       name="site_copyright"
                     >
                       <Input placeholder="例如：© 2024 我的博客. All rights reserved." className="dark:bg-gray-700 dark:text-gray-100" />
+                    </Form.Item>
+
+                    <Form.Item
+                      label="站点地址"
+                      name="site_url"
+                      tooltip="用于新文章发布通知邮件中的文章链接"
+                    >
+                      <Input placeholder="https://你的域名.com" className="dark:bg-gray-700 dark:text-gray-100" />
                     </Form.Item>
                   </div>
                 </Panel>

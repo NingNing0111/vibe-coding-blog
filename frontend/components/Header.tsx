@@ -42,12 +42,8 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 function getMenuLabel(url: string, name: string, closeDrawer?: () => void) {
   const isInternal = url.startsWith('/')
-  const baseClassName = '!text-inherit hover:!text-inherit'
-  // 让头部菜单在不依赖额外 padding 的情况下就能出现省略号
-  // 固定一个最大宽度，并开启单行省略
-  const ellipsisClassName =
-    'inline-block max-w-[140px] truncate align-middle'
-  const className = `${baseClassName} ${ellipsisClassName}`
+  const baseClassName = '!text-inherit hover:!text-inherit inline-block align-middle whitespace-nowrap'
+  const className = baseClassName
   if (isInternal) {
     return (
       <Link href={url} className={className} onClick={closeDrawer}>
@@ -121,9 +117,13 @@ export default function Header() {
           {
             key: 'logout',
             label: (
-              <Button type="text" onClick={handleLogout}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="bg-transparent border-0 p-0 cursor-pointer text-inherit font-inherit hover:opacity-80"
+              >
                 退出
-              </Button>
+              </button>
             ),
           },
         ]
@@ -134,6 +134,9 @@ export default function Header() {
           },
         ]),
   ]
+
+  const navItemClass =
+    'inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors'
 
   const mobileMenuItems = [
     ...configMobileMenuItems,
@@ -147,9 +150,13 @@ export default function Header() {
           {
             key: 'logout',
             label: (
-              <Button type="text" block onClick={handleLogout}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full text-left bg-transparent border-0 py-2 cursor-pointer text-inherit font-inherit hover:opacity-80"
+              >
                 退出
-              </Button>
+              </button>
             ),
           },
         ]
@@ -203,27 +210,20 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-1">
-          <Menu
-            mode="horizontal"
-            items={menuItems}
-            className="flex-1 border-none bg-transparent"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              minWidth: 0,
-              flex: 1,
-              boxShadow: 'none',
-            }}
-            theme="light"
-          />
+        {/* Desktop Navigation - 不折叠为省略号，有多少展示多少 */}
+        <div className="hidden md:flex items-center gap-0.5 flex-wrap justify-end">
+          {menuItems.map((item) => (
+            <span key={item.key} className={navItemClass}>
+              {'icon' in item && item.icon}
+              {item.label}
+            </span>
+          ))}
           <Button
             type="text"
             icon={theme === 'light' ? <MoonOutlined /> : <SunOutlined />}
             onClick={toggleTheme}
             aria-label="切换主题"
-            className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 border-none"
+            className="ml-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 border-none"
             style={{
               border: 'none',
               boxShadow: 'none',

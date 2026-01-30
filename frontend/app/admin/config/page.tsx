@@ -15,6 +15,7 @@ interface SiteBasicConfig {
   site_keywords: string
   site_logo: string
   site_copyright: string
+  site_url: string
   site_head_script: string
   site_footer_script: string
 }
@@ -222,6 +223,7 @@ export default function ConfigPage() {
           site_keywords: data.site_basic?.site_keywords || '',
           site_logo: data.site_basic?.site_logo || '',
           site_copyright: data.site_basic?.site_copyright || '',
+          site_url: data.site_basic?.site_url || process.env.NEXT_PUBLIC_SITE_ORIGIN || '',
           site_head_script: data.site_basic?.site_head_script || '',
           site_footer_script: data.site_basic?.site_footer_script || '',
         },
@@ -412,6 +414,14 @@ export default function ConfigPage() {
                 name={['site_basic', 'site_copyright']}
               >
                 <Input placeholder="例如：© 2024 我的博客. All rights reserved." />
+              </Form.Item>
+
+              <Form.Item
+                label="站点地址"
+                name={['site_basic', 'site_url']}
+                tooltip="用于新文章发布通知邮件中的文章链接，如 https://你的域名.com"
+              >
+                <Input placeholder="https://你的域名.com" />
               </Form.Item>
 
               <Form.Item

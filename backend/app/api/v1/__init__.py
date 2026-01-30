@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, posts, categories, tags, comments, config, upload, ai, init, stats, media
+from app.api.v1 import auth, posts, categories, tags, comments, config, upload, ai, init, stats, media, users
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(upload.router, prefix="/upload", tags=["上传"])
 api_router.include_router(media.router, prefix="/media", tags=["媒体资源"])
 api_router.include_router(ai.router, prefix="/ai", tags=["AI"])
 api_router.include_router(stats.router, prefix="/stats", tags=["统计"])
+api_router.include_router(users.router, prefix="/users", tags=["用户管理"])

@@ -130,5 +130,30 @@ class EmailService:
         """
         return await self.send_email(to_email, subject, html_content, smtp_config=smtp_config)
 
+    async def send_new_post_notification(
+        self,
+        to_email: str,
+        post_title: str,
+        post_excerpt: Optional[str],
+        post_url: str,
+        site_name: str,
+        smtp_config: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """发布新文章时通知用户。传入 smtp_config 时优先用数据库配置"""
+        subject = f"[{site_name}] 新文章：{post_title}"
+        excerpt_html = f"<p>{post_excerpt}</p>" if post_excerpt else ""
+        html_content = f"""
+        <html>
+          <body>
+            <h2>新文章发布</h2>
+            <p>您关注的 <strong>{site_name}</strong> 发布了新文章：</p>
+            <h3>{post_title}</h3>
+            {excerpt_html}
+            <p><a href="{post_url}" style="display:inline-block;padding:8px 16px;background:#1890ff;color:#fff;text-decoration:none;border-radius:4px;">点击查看</a></p>
+          </body>
+        </html>
+        """
+        return await self.send_email(to_email, subject, html_content, smtp_config=smtp_config)
+
 
 email_service = EmailService()

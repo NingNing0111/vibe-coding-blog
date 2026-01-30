@@ -23,9 +23,9 @@ import {
   DeleteOutlined,
   CopyOutlined,
   DownloadOutlined,
-  FileImageOutlined,
   FileOutlined,
   SearchOutlined,
+  SnippetsOutlined,
 } from '@ant-design/icons'
 
 const { Title } = Typography
@@ -99,14 +99,9 @@ export default function MediaPage() {
     }
   }
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  /** 上传单个文件（供选择文件与粘贴共用） */
+  const uploadFile = async (file: File): Promise<void> => {
     try {
-      setUploading(true)
-
-      // 1. 获取预签名 URL
       const { presigned_url, file_url, file_key } = await apiPost<{
         presigned_url: string
         file_url: string
@@ -117,53 +112,121 @@ export default function MediaPage() {
         file_type: 'media',
       })
 
-      // 2. 上传文件到 OSS
-      const xhr = new XMLHttpRequest()
-
-      xhr.addEventListener('load', async () => {
-        if (xhr.status === 200 || xhr.status === 204) {
-          // 3. 上传完成后保存文件信息到数据库
-          try {
-            await apiPost('/api/v1/upload/complete', {
-              file_name: file.name,
-              file_size: file.size,
-              file_type: file.type || 'application/octet-stream',
-              file_url: file_url,
-              file_key: file_key,
-            })
-            // 刷新列表
-            fetchMediaList()
-            message.success('上传成功')
-          } catch (error: any) {
-            console.error('保存文件信息失败:', error)
-            message.error('文件已上传，但保存信息失败: ' + (error.message || '未知错误'))
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.addEventListener('load', async () => {
+          if (xhr.status === 200 || xhr.status === 204) {
+            try {
+              await apiPost('/api/v1/upload/complete', {
+                file_name: file.name,
+                file_size: file.size,
+                file_type: file.type || 'application/octet-stream',
+                file_url,
+                file_key,
+              })
+              fetchMediaList()
+              resolve()
+            } catch (error: any) {
+              reject(new Error('保存文件信息失败: ' + (error.message || '未知错误')))
+            }
+          } else {
+            reject(new Error('上传失败'))
           }
-        } else {
-          throw new Error('上传失败')
-        }
-        setUploading(false)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
+        })
+        xhr.addEventListener('error', () => reject(new Error('上传失败')))
+        xhr.open('PUT', presigned_url)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.send(file)
       })
+    } catch (error: any) {
+      throw error
+    }
+  }
 
-      xhr.addEventListener('error', () => {
-        message.error('上传失败')
-        setUploading(false)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      })
-
-      xhr.open('PUT', presigned_url)
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-      xhr.send(file)
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setUploading(true)
+      await uploadFile(file)
+      message.success('上传成功')
     } catch (error: any) {
       message.error(error.message || '上传失败')
+    } finally {
       setUploading(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+    }
+  }
+
+  /** 从剪贴板获取可上传的文件列表 */
+  const getFilesFromClipboard = (clipboardData: DataTransfer): File[] => {
+    const files: File[] = []
+    if (clipboardData.files?.length) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const f = clipboardData.files[i]
+        if (f && f.size > 0) files.push(f)
+      }
+    }
+    if (files.length > 0) return files
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i]
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file && file.size > 0) files.push(file)
+      }
+    }
+    return files
+  }
+
+  /** 粘贴上传：页面内 Ctrl+V 或 点击「粘贴上传」 */
+  const handlePasteUpload = async (e: React.ClipboardEvent | { clipboardData: DataTransfer }) => {
+    const clipboardData = 'clipboardData' in e ? e.clipboardData : e.clipboardData
+    const files = getFilesFromClipboard(clipboardData)
+    if (files.length === 0) return
+    if ('preventDefault' in e) e.preventDefault()
+    try {
+      setUploading(true)
+      await Promise.all(files.map((file) => uploadFile(file)))
+      message.success(files.length > 1 ? `成功上传 ${files.length} 个文件` : '上传成功')
+    } catch (error: any) {
+      message.error(error.message || '上传失败')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  /** 点击「粘贴上传」时尝试从剪贴板读取并上传 */
+  const triggerPasteUpload = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read()
+      const files: File[] = []
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/') || type === 'image/png') {
+            const blob = await item.getType(type)
+            const ext = type.split('/')[1] || 'png'
+            files.push(new File([blob], `paste-${Date.now()}.${ext}`, { type }))
+            break
+          }
+        }
+      }
+      if (files.length === 0) {
+        message.info('剪贴板中没有可上传的图片，请先复制图片后再试')
+        return
+      }
+      setUploading(true)
+      await Promise.all(files.map((file) => uploadFile(file)))
+      message.success(files.length > 1 ? `成功上传 ${files.length} 个文件` : '上传成功')
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') {
+        message.warning('请允许访问剪贴板，或在页面内按 Ctrl+V 粘贴上传')
+      } else {
+        message.error(err?.message || '粘贴上传失败')
+      }
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -315,13 +378,33 @@ export default function MediaPage() {
     },
   ]
 
+  /** 页面内 Ctrl+V 粘贴上传（监听 document） */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const data = e.clipboardData
+      if (!data) return
+      const files = getFilesFromClipboard(data)
+      if (files.length === 0) return
+      e.preventDefault()
+      setUploading(true)
+      Promise.all(files.map((file) => uploadFile(file)))
+        .then(() => {
+          message.success(files.length > 1 ? `成功上传 ${files.length} 个文件` : '上传成功')
+        })
+        .catch((err: any) => message.error(err?.message || '上传失败'))
+        .finally(() => setUploading(false))
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [])
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>
           媒体资源管理
         </Title>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -337,6 +420,16 @@ export default function MediaPage() {
           >
             {uploading ? '上传中...' : '上传文件'}
           </Button>
+          <Button
+            icon={<SnippetsOutlined />}
+            loading={uploading}
+            onClick={triggerPasteUpload}
+          >
+            粘贴上传
+          </Button>
+          <span style={{ color: '#8c8c8c', fontSize: 12 }}>
+            支持 Ctrl+V 粘贴图片/文件
+          </span>
         </div>
       </div>
 

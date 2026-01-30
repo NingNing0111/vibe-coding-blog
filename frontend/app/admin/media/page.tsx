@@ -182,7 +182,7 @@ export default function MediaPage() {
 
   /** 粘贴上传：页面内 Ctrl+V 或 点击「粘贴上传」 */
   const handlePasteUpload = async (e: React.ClipboardEvent | { clipboardData: DataTransfer }) => {
-    const clipboardData = 'clipboardData' in e ? e.clipboardData : e.clipboardData
+    const clipboardData = (e as { clipboardData: DataTransfer }).clipboardData
     const files = getFilesFromClipboard(clipboardData)
     if (files.length === 0) return
     if ('preventDefault' in e) e.preventDefault()

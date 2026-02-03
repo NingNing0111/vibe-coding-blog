@@ -31,6 +31,7 @@ import {
   LogoutOutlined,
   UserOutlined,
   CodeOutlined,
+  BookOutlined,
 } from '@ant-design/icons'
 
 const { Header, Sider, Content } = Layout
@@ -49,6 +50,8 @@ const menuItems: MenuItem[] = [
   { key: '/admin/posts', label: '文章管理', icon: <FileTextOutlined />, path: '/admin/posts' },
   { key: '/admin/categories', label: '分类管理', icon: <FolderOutlined />, path: '/admin/categories' },
   { key: '/admin/tags', label: '标签管理', icon: <TagOutlined />, path: '/admin/tags' },
+  { key: '/admin/books', label: '书库管理', icon: <BookOutlined />, path: '/admin/books' },
+  { key: '/admin/book-categories', label: '书籍分类', icon: <FolderOutlined />, path: '/admin/book-categories' },
   { key: '/admin/media', label: '媒体资源', icon: <PictureOutlined />, path: '/admin/media' },
   { key: '/admin/comments', label: '评论管理', icon: <CommentOutlined />, path: '/admin/comments' },
   { key: '/admin/config', label: '配置中心', icon: <SettingOutlined />, path: '/admin/config' },
@@ -62,6 +65,8 @@ const routeLabels: Record<string, string> = {
   '/admin/posts/[id]/edit': '编辑文章',
   '/admin/categories': '分类管理',
   '/admin/tags': '标签管理',
+  '/admin/books': '书库管理',
+  '/admin/book-categories': '书籍分类',
   '/admin/comments': '评论管理',
   '/admin/media': '媒体资源',
   '/admin/users': '用户管理',

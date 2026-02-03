@@ -115,7 +115,8 @@ async def get_presigned_url(
         "cover": "blog-assets/cover/",
         "post": "blog-assets/post/",
         "avatar": "blog-assets/avatar/",
-        "media": "blog-assets/media/"  # 媒体资源管理
+        "media": "blog-assets/media/",  # 媒体资源管理
+        "book": "blog-assets/books/",   # 书库 epub/封面
     }
     
     # 如果没有指定类型，默认使用media

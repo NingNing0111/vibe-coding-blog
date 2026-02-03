@@ -24,9 +24,16 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // 书库/书架：仅登录用户可访问，未登录跳转登录页
+  if (request.nextUrl.pathname.startsWith('/books')) {
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: ['/admin/:path*', '/books', '/books/:path*']
 }

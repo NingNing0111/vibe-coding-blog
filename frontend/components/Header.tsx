@@ -111,6 +111,10 @@ export default function Header() {
       key: 'posts',
       label: <Link href="/posts">文章</Link>,
     },
+    {
+      key: 'books',
+      label: <Link href="/books">书架</Link>,
+    },
     ...(isLoggedIn
       ? [
           ...(isAdmin ? [{ key: 'admin', label: <Link href="/admin">管理</Link> }] : []),
@@ -143,6 +147,10 @@ export default function Header() {
     {
       key: 'posts',
       label: <Link href="/posts" onClick={() => setIsMobileMenuOpen(false)}>文章</Link>,
+    },
+    {
+      key: 'books',
+      label: <Link href="/books" onClick={() => setIsMobileMenuOpen(false)}>书架</Link>,
     },
     ...(isLoggedIn
       ? [

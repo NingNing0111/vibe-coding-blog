@@ -6,8 +6,10 @@ from app.models.comment import Comment
 from app.models.config import Config
 from app.models.media import Media
 from app.models.github_trending import GitHubTrending, GitHubTrendingLlm
+from app.models.book import BookCategory, Book, BookReadingProgress, book_categories
 
 __all__ = [
     "User", "Post", "Category", "Tag", "Comment", "Config", "Media",
     "GitHubTrending", "GitHubTrendingLlm",
+    "BookCategory", "Book", "BookReadingProgress", "book_categories",
 ]

@@ -1,5 +1,5 @@
-"""书库相关模型：书籍分类、书籍、阅读进度"""
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, BigInteger
+"""书库相关模型：书籍分类、书籍、阅读进度、划线注解"""
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, BigInteger, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -45,6 +45,7 @@ class Book(Base):
 
     categories = relationship("BookCategory", secondary=book_categories, back_populates="books")
     reading_progress = relationship("BookReadingProgress", back_populates="book", cascade="all, delete-orphan")
+    annotations = relationship("BookAnnotation", back_populates="book", cascade="all, delete-orphan")
 
 
 class BookReadingProgress(Base):
@@ -59,3 +60,20 @@ class BookReadingProgress(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     book = relationship("Book", back_populates="reading_progress")
+
+
+class BookAnnotation(Base):
+    """书籍划线注解（所有人可见）"""
+    __tablename__ = "book_annotations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    cfi_range = Column(String(512), nullable=False, index=True)  # epub CFI 范围
+    selected_text = Column(Text, nullable=False)  # 选中的原文
+    note = Column(Text, nullable=True)  # 用户写的笔记（可选）
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    book = relationship("Book", back_populates="annotations")
+    user = relationship("User", back_populates="book_annotations")

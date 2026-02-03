@@ -325,11 +325,15 @@ export default function Home() {
           </div>
 
           <Row gutter={[24, 24]}>
-            {openSourceProjects.map((project, index) => (
-              <Col xs={24} md={12} lg={8} key={index}>
+            {openSourceProjects.map((project, index) => {
+              const repoUrl =
+                (project as { github_url?: string; githubUrl?: string }).github_url ||
+                (project as { github_url?: string; githubUrl?: string }).githubUrl ||
+                ''
+              const cardContent = (
                 <Card
                   hoverable
-                  className="h-full rounded-2xl overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 dark:bg-gray-900"
+                  className="h-full rounded-2xl overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 dark:bg-gray-900 group"
                   styles={{ body: { padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' } }}
                   cover={
                     project.cover_image ? (
@@ -343,31 +347,31 @@ export default function Home() {
                     ) : undefined
                   }
                 >
-                  <Typography.Title level={4} className="!mb-2 dark:!text-gray-100">
+                  <Typography.Title level={4} className="!mb-2 dark:!text-gray-100 group-hover:text-blue-600 transition-colors">
                     {project.project_name || '我的开源项目'}
                   </Typography.Title>
-                  <Typography.Paragraph type="secondary" className="!mb-4 !text-sm !line-clamp-3">
+                  <Typography.Paragraph type="secondary" className="!mb-0 !text-sm !line-clamp-3">
                     {project.project_description || '一个持续打磨的开源项目，欢迎关注与参与。'}
                   </Typography.Paragraph>
-                  <div className="mt-auto pt-2">
-                    {(() => {
-                      const repoUrl =
-                        (project as { github_url?: string; githubUrl?: string }).github_url ||
-                        (project as { github_url?: string; githubUrl?: string }).githubUrl ||
-                        ''
-                      if (!repoUrl) return null
-                      return (
-                        <a href={repoUrl} target="_blank" rel="noreferrer">
-                          <Button type="primary" icon={<GithubOutlined />}>
-                            访问仓库
-                          </Button>
-                        </a>
-                      )
-                    })()}
-                  </div>
                 </Card>
-              </Col>
-            ))}
+              )
+              return (
+                <Col xs={24} md={12} lg={8} key={index}>
+                  {repoUrl ? (
+                    <a
+                      href={repoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block h-full no-underline text-inherit cursor-pointer"
+                    >
+                      {cardContent}
+                    </a>
+                  ) : (
+                    cardContent
+                  )}
+                </Col>
+              )
+            })}
           </Row>
         </section>
       )}

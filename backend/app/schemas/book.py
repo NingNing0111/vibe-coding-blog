@@ -80,3 +80,29 @@ class BookReadingProgressResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- 划线注解 ----------
+class BookAnnotationCreate(BaseModel):
+    cfi_range: str
+    selected_text: str
+    note: Optional[str] = None
+
+
+class BookAnnotationUpdate(BaseModel):
+    note: Optional[str] = None
+
+
+class BookAnnotationResponse(BaseModel):
+    id: int
+    book_id: int
+    user_id: int
+    username: Optional[str] = None
+    cfi_range: str
+    selected_text: str
+    note: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

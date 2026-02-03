@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_, delete
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional
 import math
 
@@ -15,9 +15,12 @@ from app.schemas.book import (
     BookCategoryResponse,
     BookReadingProgressUpdate,
     BookReadingProgressResponse,
+    BookAnnotationCreate,
+    BookAnnotationUpdate,
+    BookAnnotationResponse,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.models.book import Book, BookCategory, BookReadingProgress, book_categories
+from app.models.book import Book, BookCategory, BookReadingProgress, BookAnnotation, book_categories
 from app.models.user import User
 
 router = APIRouter()
@@ -146,6 +149,135 @@ async def update_reading_progress(
     await db.commit()
     await db.refresh(progress)
     return progress
+
+
+# ---------- 划线注解（所有人可见，仅登录用户可创建/改删自己的） ----------
+
+
+@router.get("/{book_id}/annotations", response_model=list[BookAnnotationResponse])
+async def list_book_annotations(
+    book_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取某本书的全部划线注解（所有人可见）"""
+    result = await db.execute(select(Book).where(Book.id == book_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="书籍不存在")
+    result = await db.execute(
+        select(BookAnnotation)
+        .options(joinedload(BookAnnotation.user))
+        .where(BookAnnotation.book_id == book_id)
+        .order_by(BookAnnotation.created_at)
+    )
+    annotations = result.unique().scalars().all()
+    return [
+        BookAnnotationResponse(
+            id=a.id,
+            book_id=a.book_id,
+            user_id=a.user_id,
+            username=a.user.username if a.user else None,
+            cfi_range=a.cfi_range,
+            selected_text=a.selected_text,
+            note=a.note,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        )
+        for a in annotations
+    ]
+
+
+@router.post("/{book_id}/annotations", response_model=BookAnnotationResponse, status_code=status.HTTP_201_CREATED)
+async def create_book_annotation(
+    book_id: int,
+    data: BookAnnotationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """创建划线注解"""
+    result = await db.execute(select(Book).where(Book.id == book_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="书籍不存在")
+    ann = BookAnnotation(
+        book_id=book_id,
+        user_id=current_user.id,
+        cfi_range=data.cfi_range,
+        selected_text=data.selected_text,
+        note=data.note,
+    )
+    db.add(ann)
+    await db.commit()
+    await db.refresh(ann)
+    return BookAnnotationResponse(
+        id=ann.id,
+        book_id=ann.book_id,
+        user_id=ann.user_id,
+        username=current_user.username,
+        cfi_range=ann.cfi_range,
+        selected_text=ann.selected_text,
+        note=ann.note,
+        created_at=ann.created_at,
+        updated_at=ann.updated_at,
+    )
+
+
+@router.put("/{book_id}/annotations/{annotation_id}", response_model=BookAnnotationResponse)
+async def update_book_annotation(
+    book_id: int,
+    annotation_id: int,
+    data: BookAnnotationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """更新自己的划线注解"""
+    result = await db.execute(
+        select(BookAnnotation)
+        .options(joinedload(BookAnnotation.user))
+        .where(BookAnnotation.id == annotation_id, BookAnnotation.book_id == book_id)
+    )
+    ann = result.scalar_one_or_none()
+    if not ann:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注解不存在")
+    if ann.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能修改自己的注解")
+    if data.note is not None:
+        ann.note = data.note
+    await db.commit()
+    await db.refresh(ann)
+    return BookAnnotationResponse(
+        id=ann.id,
+        book_id=ann.book_id,
+        user_id=ann.user_id,
+        username=ann.user.username if ann.user else None,
+        cfi_range=ann.cfi_range,
+        selected_text=ann.selected_text,
+        note=ann.note,
+        created_at=ann.created_at,
+        updated_at=ann.updated_at,
+    )
+
+
+@router.delete("/{book_id}/annotations/{annotation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_book_annotation(
+    book_id: int,
+    annotation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """删除自己的划线注解"""
+    result = await db.execute(
+        select(BookAnnotation).where(
+            BookAnnotation.id == annotation_id,
+            BookAnnotation.book_id == book_id,
+        )
+    )
+    ann = result.scalar_one_or_none()
+    if not ann:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注解不存在")
+    if ann.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能删除自己的注解")
+    await db.delete(ann)
+    await db.commit()
 
 
 # ---------- 管理员：书籍 CRUD ----------

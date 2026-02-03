@@ -28,3 +28,4 @@ class User(Base):
     # Relationships
     posts = relationship("Post", back_populates="author")
     comments = relationship("Comment", back_populates="user")
+    book_annotations = relationship("BookAnnotation", back_populates="user", cascade="all, delete-orphan")

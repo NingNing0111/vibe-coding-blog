@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { apiGet, apiPut, apiPost } from '@/lib/api'
-import { Spin, Button, Typography, Modal, Input, message } from 'antd'
+import { chunkedRequestMethod, onEpubProgress } from '@/lib/epubChunkedRequest'
+import { Spin, Button, Typography, Modal, Input, message, Progress } from 'antd'
 import { ArrowLeftOutlined, ZoomInOutlined, ZoomOutOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -81,6 +82,7 @@ export default function BookReadPage() {
   const [annotationModal, setAnnotationModal] = useState<{ visible: boolean; cfiRange: string; selectedText: string; note: string }>({ visible: false, cfiRange: '', selectedText: '', note: '' })
   const [annotationSaving, setAnnotationSaving] = useState(false)
   const [markClickedInfo, setMarkClickedInfo] = useState<{ username: string; note: string | null; id: number } | null>(null)
+  const [epubLoadPercent, setEpubLoadPercent] = useState<number | null>(null)
   const annotationsRef = useRef<BookAnnotation[]>([])
   useEffect(() => {
     annotationsRef.current = annotations
@@ -91,6 +93,24 @@ export default function BookReadPage() {
     const value = FONT_SIZE_OPTIONS.includes(n as (typeof FONT_SIZE_OPTIONS)[number]) ? n : 100
     setFontSizePercent(value)
   }, [])
+
+  useEffect(() => {
+    if (!book?.file_url) return
+    setEpubLoadPercent(0)
+    let hideTimeout: ReturnType<typeof setTimeout> | null = null
+    const unsub = onEpubProgress((p) => {
+      setEpubLoadPercent(p.percent)
+      if (p.percent >= 100) {
+        hideTimeout = setTimeout(() => setEpubLoadPercent(null), 400)
+      }
+    })
+    return () => {
+      unsub()
+      if (hideTimeout) clearTimeout(hideTimeout)
+      setEpubLoadPercent(null)
+    }
+  }, [book?.id])
+
   const renditionRef = useRef<{
     themes: { register: (t: Record<string, unknown>) => void; select: (n: string) => void; fontSize: (s: string) => void }
     annotations: { highlight: (cfi: string, data: Record<string, unknown>, cb: () => void, className?: string, styles?: Record<string, string>) => void }
@@ -313,20 +333,27 @@ export default function BookReadPage() {
         </div>
       </div>
       <div style={{ height: 'calc(100vh - 56px)' }} className="bg-white dark:bg-gray-800 relative">
+        {epubLoadPercent != null && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/90 dark:bg-gray-800/90">
+            <Progress type="circle" percent={epubLoadPercent} size={64} strokeColor={{ '0%': '#3b82f6', '100%': '#2563eb' }} />
+            <span className="text-sm text-slate-600 dark:text-gray-400">
+              {epubLoadPercent >= 100 ? '正在解析…' : `加载中 ${epubLoadPercent}%`}
+            </span>
+          </div>
+        )}
         <ReactReader
           url={book.file_url}
           title={book.title}
           location={location}
           locationChanged={handleLocationChange}
           showToc={true}
-          readerStyles={{
-            ...(theme === 'dark'
-              ? {
-                  reader: { background: '#0f172a' },
-                  tocButton: { color: '#e2e8f0' },
-                }
-              : {}),
-          }}
+          epubInitOptions={{ requestMethod: chunkedRequestMethod }}
+          readerStyles={
+            // react-reader 类型要求完整 IReactReaderStyle，此处仅做部分覆盖
+            (theme === 'dark'
+              ? { reader: { background: '#0f172a' }, tocButton: { color: '#e2e8f0' } }
+              : {}) as any
+          }
           getRendition={(r) => {
             if (!r?.themes) return
             renditionRef.current = r as unknown as typeof renditionRef.current

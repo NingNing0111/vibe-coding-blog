@@ -18,6 +18,12 @@ from app.schemas.media import MediaCreate, MediaResponse
 
 router = APIRouter()
 
+# 显式注册 .epub 等 MIME，避免在部分环境（如精简 Docker）中 mimetypes 无此类型，
+# 导致预签名 URL 使用 application/octet-stream，而前端 PUT 时发送 application/epub+zip，
+# S3 要求 Content-Type 与签名时一致，否则返回 403
+mimetypes.add_type("application/epub+zip", ".epub")
+mimetypes.add_type("application/epub+zip", ".EPUB")
+
 
 class PresignedUrlRequest(BaseModel):
     """获取预签名URL的请求模型"""

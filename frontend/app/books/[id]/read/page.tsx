@@ -12,6 +12,18 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 const ReactReader = dynamic(() => import('react-reader').then((m) => m.ReactReader), { ssr: false })
 
+/** epubjs 要求 requestMethod 签名为 (url, type, withCredentials: object, headers: object) => Promise<object>，此处做类型适配 */
+function epubRequestMethod(
+  url: string,
+  type: string,
+  withCredentials: object,
+  headers: object
+): Promise<object> {
+  const withCreds = typeof withCredentials === 'boolean' ? withCredentials : Boolean(withCredentials)
+  const h = headers && typeof headers === 'object' ? (headers as Record<string, string>) : {}
+  return chunkedRequestMethod(url, type, withCreds, h) as Promise<object>
+}
+
 /** 划线注解（与后端一致） */
 interface BookAnnotation {
   id: number
@@ -347,7 +359,7 @@ export default function BookReadPage() {
           location={location}
           locationChanged={handleLocationChange}
           showToc={true}
-          epubInitOptions={{ requestMethod: chunkedRequestMethod }}
+          epubInitOptions={{ requestMethod: epubRequestMethod }}
           readerStyles={
             // react-reader 类型要求完整 IReactReaderStyle，此处仅做部分覆盖
             (theme === 'dark'
